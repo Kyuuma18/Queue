@@ -73,7 +73,7 @@ a { color: var(--blue); }
 .size-toggle { display: flex; gap: 4px; background: rgb(255 255 255 / 0.12); padding: 4px; border-radius: 14px; flex: none; }
 .size-toggle button {
   border: 0; background: transparent; color: #fff; border-radius: 10px;
-  min-width: 40px; height: 40px; font-weight: 800; line-height: 1;
+  min-width: 46px; height: 46px; font-weight: 800; line-height: 1;
 }
 .size-toggle button[aria-pressed="true"] { background: #fff; color: var(--navy); }
 
