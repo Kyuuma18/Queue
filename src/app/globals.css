@@ -342,14 +342,17 @@ table.data td.empty { text-align: center; color: var(--muted); font-weight: 800;
 }
 
 /* Receipt (shown on screen in the ticket dialog, and printed on a thermal printer). */
-.receipt { width: 100%; max-width: 220px; margin: 0 auto; padding: 8px 8px 6px; background: #fff; color: #000; border: 1px dashed var(--muted, #888); border-radius: 6px; font-family: "Courier New", ui-monospace, monospace; text-align: center; font-size: 11px; line-height: 1.25; }
+.receipt { width: 100%; max-width: 290px; margin: 0 auto; padding: 6px 8px 5px; background: #fff; color: #000; border: 1px dashed var(--muted, #888); border-radius: 6px; font-family: "Courier New", ui-monospace, monospace; text-align: center; font-size: 11px; line-height: 1.25; }
 .receipt hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
 .receipt-top { display: flex; align-items: center; gap: 6px; text-align: left; }
 .receipt-seal { width: 34px; height: 34px; flex: none; object-fit: contain; display: block; }
 .receipt-head { font-weight: 700; text-transform: uppercase; font-size: 10px; line-height: 1.2; }
 .receipt-sub { font-size: 10px; letter-spacing: .08em; }
-.receipt-number { font-size: 40px; font-weight: 900; line-height: 1.05; letter-spacing: .02em; margin: 2px 0; }
+.receipt-number { font-size: 38px; font-weight: 900; line-height: 1.05; letter-spacing: .02em; margin: 2px 0; }
 .receipt-kind { font-weight: 700; font-size: 12px; }
-.receipt-line { display: flex; justify-content: space-between; gap: 10px; text-align: left; }
-.receipt-line b { text-align: right; overflow-wrap: anywhere; }
+.receipt-body { display: flex; align-items: center; gap: 8px; margin: 4px 0; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 3px 0; }
+.receipt-left { flex: none; }
+.receipt-right { flex: 1; min-width: 0; text-align: left; font-size: 10px; }
+.receipt-line { text-align: left; }
+.receipt-line b { overflow-wrap: anywhere; }
 .receipt-foot { font-size: 10px; margin-top: 1px; }

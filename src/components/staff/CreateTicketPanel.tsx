@@ -110,7 +110,7 @@ export function CreateTicketPanel({ office, onExpired }: { office: OfficeId; onE
   // Print as an 80mm thermal-receipt slip: a temporary @page rule so the queue list still prints on A4.
   function printReceipt() {
     const s = document.createElement("style");
-    s.textContent = "@page { size: 58mm auto; margin: 2mm; }";
+    s.textContent = "@page { size: 64mm 34mm; margin: 1.5mm; }";
     document.head.appendChild(s);
     document.documentElement.classList.add("print-receipt");
     const done = () => {
@@ -148,48 +148,34 @@ export function CreateTicketPanel({ office, onExpired }: { office: OfficeId; onE
             {created ? (
               <div className="stack" style={{ textAlign: "center" }}>
                 <div className="receipt">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <div className="receipt-top">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src="/logo.jpg" alt="" className="receipt-seal" />
                     <div>
                       <div className="receipt-head">Bayan ng Cainta, Rizal</div>
                       <div className="receipt-head">{off.name}</div>
                     </div>
                   </div>
-                  <hr />
-                  <div className="receipt-sub">{t("NUMERO NG PILA", "QUEUE NUMBER")}</div>
-                  <div className="receipt-number">{created.number}</div>
-                  <div className="receipt-kind">{created.priority ? "★ PRIORITY" : "REGULAR"}</div>
-                  <hr />
-                  {created.business_name && (
-                    <div className="receipt-line">
-                      <span>{t("Negosyo", "Business")}</span>
-                      <b>{created.business_name}</b>
+                  <div className="receipt-body">
+                    <div className="receipt-left">
+                      <div className="receipt-number">{created.number}</div>
+                      <div className="receipt-kind">{created.priority ? "★ PRIORITY" : "REGULAR"}</div>
                     </div>
-                  )}
-                  {created.account_no && (
-                    <div className="receipt-line">
-                      <span>{t("Account No.", "Account No.")}</span>
-                      <b>{created.account_no}</b>
+                    <div className="receipt-right">
+                      {created.business_name && <div className="receipt-line"><b>{created.business_name}</b></div>}
+                      {created.account_no && <div className="receipt-line"><span>{t("Acct", "Acct")}</span> <b>{created.account_no}</b></div>}
+                      {(created.app_type || created.biz_type) && (
+                        <div className="receipt-line"><b>{[created.app_type, created.biz_type].filter(Boolean).join(" · ")}</b></div>
+                      )}
+                      <div className="receipt-line">
+                        {new Date(created.created_at).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric" })}
+                      </div>
+                      <div className="receipt-line">
+                        {new Date(created.created_at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit" })}
+                      </div>
                     </div>
-                  )}
-                  {(created.app_type || created.biz_type) && (
-                    <div className="receipt-line">
-                      <span>{t("Uri", "Type")}</span>
-                      <b>{[created.app_type, created.biz_type].filter(Boolean).join(" · ")}</b>
-                    </div>
-                  )}
-                  <div className="receipt-line">
-                    <span>{t("Petsa", "Date")}</span>
-                    <b>{new Date(created.created_at).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric" })}</b>
                   </div>
-                  <div className="receipt-line">
-                    <span>{t("Oras", "Time")}</span>
-                    <b>{new Date(created.created_at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit" })}</b>
-                  </div>
-                  <hr />
-                  <div className="receipt-foot">{t("Hintayin po ang inyong numero sa screen.", "Please wait for your number on the screen.")}</div>
-                  <div className="receipt-foot">{t("Salamat po!", "Thank you!")}</div>
+                  <div className="receipt-foot">{t("Hintayin po ang inyong numero sa screen. Salamat po!", "Please wait for your number on the screen. Thank you!")}</div>
                 </div>
                 <div className="row no-print" style={{ justifyContent: "center", marginTop: 8 }}>
                   <button className="btn btn-ghost" onClick={printReceipt}>
