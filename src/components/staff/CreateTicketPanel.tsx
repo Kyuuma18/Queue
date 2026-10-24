@@ -149,9 +149,13 @@ export function CreateTicketPanel({ office, onExpired }: { office: OfficeId; onE
               <div className="stack" style={{ textAlign: "center" }}>
                 <div className="receipt">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/logo.jpg" alt="" className="receipt-seal" />
-                  <div className="receipt-head">Bayan ng Cainta, Rizal</div>
-                  <div className="receipt-head">{off.name}</div>
+                  <div className="receipt-top">
+                    <img src="/logo.jpg" alt="" className="receipt-seal" />
+                    <div>
+                      <div className="receipt-head">Bayan ng Cainta, Rizal</div>
+                      <div className="receipt-head">{off.name}</div>
+                    </div>
+                  </div>
                   <hr />
                   <div className="receipt-sub">{t("NUMERO NG PILA", "QUEUE NUMBER")}</div>
                   <div className="receipt-number">{created.number}</div>
