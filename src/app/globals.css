@@ -333,4 +333,22 @@ table.data td.empty { text-align: center; color: var(--muted); font-weight: 800;
   .print-area { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; }
   .no-print { display: none !important; }
   .modal-back { background: none; }
+  /* Receipt slip: only the receipt, narrow, black on white. */
+  .print-receipt .print-area { position: static; padding: 0; border: 0; background: #fff; }
+  .print-receipt .print-area * { visibility: hidden; }
+  .print-receipt .receipt, .print-receipt .receipt * { visibility: visible; }
+  .print-receipt .receipt { position: absolute; left: 0; top: 0; width: 100%; max-width: none; border: 0; box-shadow: none; padding: 0; }
+  .print-receipt .receipt-seal { filter: grayscale(1); }
 }
+
+/* Receipt (shown on screen in the ticket dialog, and printed on a thermal printer). */
+.receipt { width: 100%; max-width: 300px; margin: 0 auto; padding: 14px 14px 12px; background: #fff; color: #000; border: 1px dashed var(--muted, #888); border-radius: 6px; font-family: "Courier New", ui-monospace, monospace; text-align: center; font-size: 14px; line-height: 1.35; }
+.receipt hr { border: 0; border-top: 1px dashed #000; margin: 8px 0; }
+.receipt-seal { width: 52px; height: 52px; object-fit: contain; display: block; margin: 0 auto 4px; }
+.receipt-head { font-weight: 700; text-transform: uppercase; }
+.receipt-sub { font-size: 12px; letter-spacing: .08em; }
+.receipt-number { font-size: 56px; font-weight: 900; line-height: 1.05; letter-spacing: .02em; margin: 2px 0; }
+.receipt-kind { font-weight: 700; font-size: 16px; }
+.receipt-line { display: flex; justify-content: space-between; gap: 10px; text-align: left; }
+.receipt-line b { text-align: right; overflow-wrap: anywhere; }
+.receipt-foot { font-size: 12px; margin-top: 2px; }
