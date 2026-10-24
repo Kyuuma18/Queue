@@ -25,7 +25,9 @@ ALTER TABLE tickets ADD COLUMN IF NOT EXISTS done_at   TIMESTAMPTZ;
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS recalls   INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS notified  BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS token     TEXT;
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS office    TEXT NOT NULL DEFAULT 'bplo';
 CREATE INDEX IF NOT EXISTS tickets_day_status ON tickets (day, status);
+CREATE INDEX IF NOT EXISTS tickets_office_status ON tickets (office, status, day);
 `;
 
 let dbPromise: Promise<Db> | null = null;

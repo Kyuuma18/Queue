@@ -43,3 +43,12 @@ npm run dev          # http://localhost:3000 — uses a local database in ./.pgl
 ```
 
 `scripts/smoke-test.sh` runs through the whole flow (take numbers → call → transfer → no-show → cancel) against a running server.
+
+## GSO queue (second office)
+
+The General Services Office has its own queue next to the BPLO one, with the same screens under `/gso`:
+`/gso` (home), `/gso/kiosk`, `/gso/display` (TV), `/gso/staff`. Staff use the same PIN.
+
+- **Numbers restart at 1 every day**, separately for each office and each transaction (BPLO: A, B, C. GSO: R = Request, L = Release).
+- **Unclaimed numbers are kept.** A number marked "Hindi sumipot / No-show" (or one a counter left open overnight) stays on the unclaimed list day after day, with its old number and the date it was issued, until staff press **Claimed**, call it, or **Put back** it in the line. People still waiting in the line at closing time are not carried over.
+- The GSO transactions and windows are set in `src/lib/config.ts` (`OFFICES.gso`).

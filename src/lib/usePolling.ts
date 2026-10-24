@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { QueueState } from "./queue";
+import type { OfficeId } from "./config";
 
 /** Fetches JSON every `ms` milliseconds; pauses while the tab is hidden. */
 export function usePolling<T>(url: string | null, ms: number) {
@@ -43,8 +44,8 @@ export function usePolling<T>(url: string | null, ms: number) {
   return { data, error, status, reload: load };
 }
 
-export function useQueueState(ms = 4000) {
-  const { data, error, reload } = usePolling<QueueState>("/api/state", ms);
+export function useQueueState(ms = 4000, office: OfficeId = "bplo") {
+  const { data, error, reload } = usePolling<QueueState>(`/api/state?office=${office}`, ms);
   return { state: data, error, reload };
 }
 
@@ -54,6 +55,8 @@ export interface SavedTicket {
   token: string;
   number: string;
   day: string;
+  /** Which office's queue it is in (older saved tickets have none, which means BPLO). */
+  office?: OfficeId;
 }
 
 export function manilaDay() {

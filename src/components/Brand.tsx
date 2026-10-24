@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { OFFICE_SHORT } from "@/lib/config";
+import { OfficeId, getOffice } from "@/lib/config";
 import { setLang, useLang, useT } from "@/lib/i18n";
 
 export function Seal({ size = 46 }: { size?: number }) {
@@ -59,23 +59,26 @@ export function LangToggle() {
 }
 
 export function TopBar({
-  subtitle = OFFICE_SHORT,
+  office = "bplo",
+  subtitle,
   sizes = true,
   lang = true,
 }: {
+  office?: OfficeId;
   subtitle?: string;
   sizes?: boolean;
   lang?: boolean;
 }) {
   const t = useT();
+  const off = getOffice(office);
   return (
     <header className="topbar">
       <div className="topbar-inner">
-        <Link href="/" className="brand" aria-label={t("Pumunta sa Home", "Go to Home")}>
+        <Link href={off.paths.home} className="brand" aria-label={t("Pumunta sa Home", "Go to Home")}>
           <Seal />
           <span className="brand-text">
             <b>Cainta Queue</b>
-            <small>{subtitle}</small>
+            <small>{subtitle ?? off.short}</small>
           </span>
         </Link>
         <div className="topbar-tools">

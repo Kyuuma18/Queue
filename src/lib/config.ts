@@ -1,74 +1,51 @@
 // ─────────────────────────────────────────────────────────────
-//  Office settings — edit this file to change the queue.
+//  Office settings — edit this file to change the queues.
+//  There is one queue per office: "bplo" (Business Permit & Licensing) and "gso" (General Services).
 // ─────────────────────────────────────────────────────────────
 
-export const OFFICE_NAME = "Cainta Business Permit & Licensing Office";
-export const OFFICE_SHORT = "BPLO & Treasury";
 export const MUNICIPALITY = "Bayan ng Cainta, Rizal";
 
 /**
- * Services people can line up for.
- * `code` is the letter on the ticket (A001, B014 …). Keep it to one capital letter.
+ * A transaction people can line up for.
+ * `code` is the letter on the ticket (A001, R014 …): one capital letter, never reused by another office.
  * `icon` is a simple emoji shown on the big buttons.
  */
-export const SERVICES = [
-  {
-    code: "A",
-    name: "Renewal Application",
-    tl: "Pag-renew ng Permit",
-    detail: "Submit requirements and get assessed",
-    detailTl: "Magpasa ng requirements at magpa-assess",
-    icon: "📝",
-    color: "#1d4ed8",
-  },
-  {
-    code: "B",
-    name: "Payment",
-    tl: "Pagbabayad",
-    detail: "Pay your assessed fees at the Treasury",
-    detailTl: "Magbayad ng assessed fees sa Treasury",
-    icon: "💵",
-    color: "#047857",
-  },
-  {
-    code: "C",
-    name: "Permit Release",
-    tl: "Pagkuha ng Permit",
-    detail: "Claim your renewed Business Permit",
-    detailTl: "Kunin ang inyong Business Permit",
-    icon: "📄",
-    color: "#b45309",
-  },
-] as const;
+export interface Service {
+  code: string;
+  name: string;
+  tl: string;
+  detail: string;
+  detailTl: string;
+  icon: string;
+  color: string;
+}
 
-export type ServiceCode = (typeof SERVICES)[number]["code"];
+/** Counters / windows. `services` lists which ticket letters each counter calls. */
+export interface Counter {
+  id: number;
+  label: string;
+  services: string[];
+}
 
-/**
- * Counters / windows. `services` lists which ticket letters each counter calls.
- * Add or remove lines to match the number of windows open.
- */
-export const COUNTERS: { id: number; label: string; services: ServiceCode[] }[] = [
-  { id: 1, label: "Counter 1", services: ["A"] },
-  { id: 2, label: "Counter 2", services: ["A"] },
-  { id: 3, label: "Counter 3", services: ["B"] },
-  { id: 4, label: "Counter 4", services: ["B"] },
-  { id: 5, label: "Counter 5", services: ["C", "A"] },
-];
+export type Slide = { title: string; body?: string; list?: string[] };
 
-/** Text the person by SMS when this many people are ahead of them. */
-export const NOTIFY_WHEN_AHEAD = 2;
+export type OfficeId = "bplo" | "gso";
 
-/** Rough minutes per client, used only for the "about N minutes" estimate. */
-export const MINUTES_PER_CLIENT = 6;
-
-/**
- * Waiting-area TV (/display).
- * YouTube links (videos or playlists) or direct .mp4 links. Videos play muted.
- * Leave empty to show the rotating slides below instead.
- */
-export const VIDEOS: string[] = [];
-
-type Slide = { title: string; body?: string; list?: string[] };
+export interface Office {
+  id: OfficeId;
+  name: string;
+  short: string;
+  /** Page addresses for this office's screens. */
+  paths: { home: string; kiosk: string; display: string; staff: string };
+  services: Service[];
+  counters: Counter[];
+  /**
+   * Waiting-area TV: YouTube links (videos or playlists) or direct .mp4 links. Videos play muted.
+   * Leave empty to show the rotating slides instead.
+   */
+  videos: string[];
+  slides: { tl: Slide[]; en: Slide[] };
+}
 
 // The requirements are document names, so the list is the same in both languages.
 const REQUIREMENTS = [
@@ -80,43 +57,146 @@ const REQUIREMENTS = [
   "Public Liability Insurance",
 ];
 
-/** Rotating messages on the TV, one set per language (shown in the language picked with the button). */
-export const SLIDES: Record<"tl" | "en", Slide[]> = {
-  tl: [
-    { title: "Mabuhay po sa Cainta!", body: "Salamat sa pag-renew ng inyong Business Permit." },
-    { title: "Mga Kailangan sa Pag-renew", list: REQUIREMENTS },
-    {
-      title: "Priority Lane",
-      body: "Ang mga senior citizen, PWD, buntis, at may kasamang sanggol ay may priority.",
+const PRIORITY_TL = "Ang mga senior citizen, PWD, buntis, at may kasamang sanggol ay may priority.";
+const PRIORITY_EN = "Senior citizens, PWD, pregnant clients and those with an infant are served first.";
+const WAIT_TL = "Lalabas sa screen at ia-anunsyo ang inyong numero at counter. Dalhin ang inyong ticket o phone.";
+const WAIT_EN = "Your number and counter will appear on the screen and be announced. Keep your ticket or phone with you.";
+
+export const OFFICES: Record<OfficeId, Office> = {
+  bplo: {
+    id: "bplo",
+    name: "Cainta Business Permit & Licensing Office",
+    short: "BPLO & Treasury",
+    paths: { home: "/", kiosk: "/kiosk", display: "/display", staff: "/staff" },
+    services: [
+      {
+        code: "A",
+        name: "Renewal Application",
+        tl: "Pag-renew ng Permit",
+        detail: "Submit requirements and get assessed",
+        detailTl: "Magpasa ng requirements at magpa-assess",
+        icon: "📝",
+        color: "#1d4ed8",
+      },
+      {
+        code: "B",
+        name: "Payment",
+        tl: "Pagbabayad",
+        detail: "Pay your assessed fees at the Treasury",
+        detailTl: "Magbayad ng assessed fees sa Treasury",
+        icon: "💵",
+        color: "#047857",
+      },
+      {
+        code: "C",
+        name: "Permit Release",
+        tl: "Pagkuha ng Permit",
+        detail: "Claim your renewed Business Permit",
+        detailTl: "Kunin ang inyong Business Permit",
+        icon: "📄",
+        color: "#b45309",
+      },
+    ],
+    counters: [
+      { id: 1, label: "Counter 1", services: ["A"] },
+      { id: 2, label: "Counter 2", services: ["A"] },
+      { id: 3, label: "Counter 3", services: ["B"] },
+      { id: 4, label: "Counter 4", services: ["B"] },
+      { id: 5, label: "Counter 5", services: ["C", "A"] },
+    ],
+    videos: [],
+    slides: {
+      tl: [
+        { title: "Mabuhay po sa Cainta!", body: "Salamat sa pag-renew ng inyong Business Permit." },
+        { title: "Mga Kailangan sa Pag-renew", list: REQUIREMENTS },
+        { title: "Priority Lane", body: PRIORITY_TL },
+        { title: "Hintayin ang inyong numero", body: WAIT_TL },
+      ],
+      en: [
+        { title: "Welcome to Cainta!", body: "Thank you for renewing your Business Permit with us." },
+        { title: "Requirements for Renewal", list: REQUIREMENTS },
+        { title: "Priority Lane", body: PRIORITY_EN },
+        { title: "Wait for your number", body: WAIT_EN },
+      ],
     },
-    {
-      title: "Hintayin ang inyong numero",
-      body: "Lalabas sa screen at ia-anunsyo ang inyong numero at counter. Dalhin ang inyong ticket o phone.",
+  },
+
+  gso: {
+    id: "gso",
+    name: "Cainta General Services Office",
+    short: "GSO",
+    paths: { home: "/gso", kiosk: "/gso/kiosk", display: "/gso/display", staff: "/gso/staff" },
+    services: [
+      {
+        code: "R",
+        name: "Request",
+        tl: "Paghiling (Request)",
+        detail: "Submit a request or application to GSO",
+        detailTl: "Magsumite ng request o aplikasyon sa GSO",
+        icon: "📋",
+        color: "#1d4ed8",
+      },
+      {
+        code: "L",
+        name: "Release",
+        tl: "Pagkuha (Release)",
+        detail: "Claim your document or item",
+        detailTl: "Kunin ang inyong dokumento o gamit",
+        icon: "📦",
+        color: "#b45309",
+      },
+    ],
+    // Both windows call both lines, so whichever window is free serves the next number.
+    counters: [
+      { id: 1, label: "Counter 1", services: ["R", "L"] },
+      { id: 2, label: "Counter 2", services: ["R", "L"] },
+    ],
+    videos: [],
+    slides: {
+      tl: [
+        { title: "Mabuhay po sa GSO ng Cainta!", body: "Salamat po sa inyong pagbisita." },
+        { title: "Priority Lane", body: PRIORITY_TL },
+        { title: "Hintayin ang inyong numero", body: WAIT_TL },
+      ],
+      en: [
+        { title: "Welcome to the Cainta GSO!", body: "Thank you for visiting us." },
+        { title: "Priority Lane", body: PRIORITY_EN },
+        { title: "Wait for your number", body: WAIT_EN },
+      ],
     },
-  ],
-  en: [
-    { title: "Welcome to Cainta!", body: "Thank you for renewing your Business Permit with us." },
-    { title: "Requirements for Renewal", list: REQUIREMENTS },
-    {
-      title: "Priority Lane",
-      body: "Senior citizens, PWD, pregnant clients and those with an infant are served first.",
-    },
-    {
-      title: "Wait for your number",
-      body: "Your number and counter will appear on the screen and be announced. Keep your ticket or phone with you.",
-    },
-  ],
+  },
 };
 
+export const OFFICE_IDS = Object.keys(OFFICES) as OfficeId[];
+
+/** The office for a page or API call. Empty means BPLO (the original queue); anything unknown is an error. */
+export function getOffice(id?: unknown): Office {
+  if (id === undefined || id === null || id === "") return OFFICES.bplo;
+  const o = OFFICES[id as OfficeId];
+  if (!o) throw new Error("Unknown office");
+  return o;
+}
+
+/** Text the person by SMS when this many people are ahead of them. */
+export const NOTIFY_WHEN_AHEAD = 2;
+
+/** Rough minutes per client, used only for the "about N minutes" estimate. */
+export const MINUTES_PER_CLIENT = 6;
+
+/** Look a transaction up by its ticket letter (letters are unique across offices). */
 export function service(code: string) {
-  return SERVICES.find((s) => s.code === code);
+  for (const o of OFFICE_IDS) {
+    const s = OFFICES[o].services.find((x) => x.code === code);
+    if (s) return s;
+  }
+  return undefined;
 }
 
 export function serviceName(code: string) {
   return service(code)?.name ?? code;
 }
 
-export function counterLabel(id: number | null | undefined) {
+export function counterLabel(office: unknown, id: number | null | undefined) {
   if (!id) return "";
-  return COUNTERS.find((c) => c.id === id)?.label ?? `Counter ${id}`;
+  return getOffice(office).counters.find((c) => c.id === id)?.label ?? `Counter ${id}`;
 }

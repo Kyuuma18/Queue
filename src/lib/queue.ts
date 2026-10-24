@@ -1,9 +1,11 @@
 import { randomBytes } from "crypto";
 import { getDb } from "./db";
-import { COUNTERS, NOTIFY_WHEN_AHEAD, OFFICE_SHORT, SERVICES, counterLabel, serviceName } from "./config";
+import { NOTIFY_WHEN_AHEAD, counterLabel, getOffice, serviceName } from "./config";
 import { sendSms } from "./sms";
 
 const TODAY = "(NOW() AT TIME ZONE 'Asia/Manila')::date";
+// The Manila calendar day a ticket was issued on. Numbers restart at 1 each day by counting these.
+const ISSUED_DAY = "(created_at AT TIME ZONE 'Asia/Manila')::date";
 // Priority clients first, then first come, first served.
 const ORDER = "priority DESC, created_at ASC, id ASC";
 
@@ -11,6 +13,7 @@ export type Status = "waiting" | "serving" | "done" | "skipped" | "cancelled";
 
 export interface Ticket {
   id: number;
+  office: string;
   number: string;
   service: string;
   priority: boolean;
@@ -18,6 +21,8 @@ export interface Ticket {
   status: Status;
   counter: number | null;
   created_at: string;
+  /** Day the ticket was issued, "YYYY-MM-DD" (Manila). Older than today = carried over from an earlier day. */
+  cday: string;
   called_at: string | null;
   done_at: string | null;
   recalls: number;
@@ -25,13 +30,18 @@ export interface Ticket {
 }
 
 /** What the public may see about a ticket (no phone number, no token). */
-export type PublicTicket = Pick<Ticket, "id" | "number" | "service" | "priority" | "status" | "counter" | "called_at" | "recalls">;
+export type PublicTicket = Pick<
+  Ticket,
+  "id" | "office" | "number" | "service" | "priority" | "status" | "counter" | "called_at" | "recalls" | "cday"
+>;
 
-const COLS = "id, number, service, priority, phone, status, counter, created_at, called_at, done_at, recalls, token";
+const COLS = `id, office, number, service, priority, phone, status, counter, created_at,
+  to_char(${ISSUED_DAY}, 'YYYY-MM-DD') AS cday, called_at, done_at, recalls, token`;
 
 export function toPublic(t: Ticket): PublicTicket {
   return {
     id: t.id,
+    office: t.office,
     number: t.number,
     service: t.service,
     priority: t.priority,
@@ -39,6 +49,7 @@ export function toPublic(t: Ticket): PublicTicket {
     counter: t.counter,
     called_at: t.called_at,
     recalls: t.recalls,
+    cday: t.cday,
   };
 }
 
@@ -52,28 +63,30 @@ export function normalizePhone(raw: unknown): string | null {
   return d;
 }
 
-export async function createTicket(serviceCode: string, priority: boolean, phone: string | null) {
-  if (!SERVICES.some((s) => s.code === serviceCode)) throw new Error("Unknown service");
+export async function createTicket(officeId: unknown, serviceCode: string, priority: boolean, phone: string | null) {
+  const off = getOffice(officeId);
+  if (!off.services.some((s) => s.code === serviceCode)) throw new Error("Unknown service");
   const db = await getDb();
   const token = randomBytes(9).toString("base64url");
   // Retry in the rare case two people press the button at the same instant.
   for (let attempt = 0; attempt < 5; attempt++) {
+    // Numbers start again at 1 every day: only tickets issued today are counted.
     const [{ n }] = await db.query<{ n: number }>(
-      `SELECT COUNT(*)::int AS n FROM tickets WHERE day = ${TODAY} AND service = $1`,
-      [serviceCode],
+      `SELECT COUNT(*)::int AS n FROM tickets WHERE office = $1 AND service = $2 AND ${ISSUED_DAY} = ${TODAY}`,
+      [off.id, serviceCode],
     );
     const number = (priority ? "P" : "") + serviceCode + String(n + 1 + attempt).padStart(3, "0");
-    const dup = await db.query(`SELECT 1 FROM tickets WHERE day = ${TODAY} AND number = $1`, [number]);
+    const dup = await db.query(`SELECT 1 FROM tickets WHERE office = $1 AND number = $2 AND ${ISSUED_DAY} = ${TODAY}`, [off.id, number]);
     if (dup.length) continue;
     const [t] = await db.query<Ticket>(
-      `INSERT INTO tickets (number, service, priority, phone, token) VALUES ($1, $2, $3, $4, $5) RETURNING ${COLS}`,
-      [number, serviceCode, priority, phone, token],
+      `INSERT INTO tickets (office, number, service, priority, phone, token) VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${COLS}`,
+      [off.id, number, serviceCode, priority, phone, token],
     );
     const ahead = await countAhead(t);
     if (phone) {
       sendSms(
         phone,
-        `Cainta ${OFFICE_SHORT}: Ang inyong numero ay ${t.number} (${serviceName(serviceCode)}). ${ahead} ang nauuna sa inyo. Ite-text namin kayo kapag malapit na.`,
+        `Cainta ${off.short}: Ang inyong numero ay ${t.number} (${serviceName(serviceCode)}). ${ahead} ang nauuna sa inyo. Ite-text namin kayo kapag malapit na.`,
       ).catch(() => {});
     }
     return { ticket: t, ahead };
@@ -81,14 +94,14 @@ export async function createTicket(serviceCode: string, priority: boolean, phone
   throw new Error("Could not issue a number, please try again.");
 }
 
-export async function countAhead(t: Pick<Ticket, "id" | "service" | "priority" | "created_at" | "status">) {
+export async function countAhead(t: Pick<Ticket, "id" | "office" | "service" | "priority" | "created_at" | "status">) {
   if (t.status !== "waiting") return 0;
   const db = await getDb();
   const [r] = await db.query<{ n: number }>(
     `SELECT COUNT(*)::int AS n FROM tickets
-      WHERE day = ${TODAY} AND status = 'waiting' AND service = $1 AND id <> $2
+      WHERE day = ${TODAY} AND status = 'waiting' AND office = $5 AND service = $1 AND id <> $2
         AND (priority > $3 OR (priority = $3 AND (created_at, id) < ($4::timestamptz, $2)))`,
-    [t.service, t.id, t.priority, t.created_at],
+    [t.service, t.id, t.priority, t.created_at, t.office],
   );
   return r.n;
 }
@@ -105,14 +118,24 @@ export async function cancelTicket(id: number, token: string) {
   await db.query(`UPDATE tickets SET status = 'cancelled', done_at = NOW() WHERE id = $1 AND token = $2 AND status = 'waiting'`, [id, token]);
 }
 
-export async function getState() {
+export async function getState(officeId: unknown) {
+  const off = getOffice(officeId);
   const db = await getDb();
+  // A number left "serving" from an earlier day was never closed: keep it on the unclaimed list so it is not lost.
+  await db.query(`UPDATE tickets SET status = 'skipped' WHERE status = 'serving' AND day < ${TODAY}`);
+  // Today's line, plus every unclaimed number from any earlier day (they stay until claimed).
   const rows = await db.query<Ticket>(
-    `SELECT ${COLS} FROM tickets WHERE day = ${TODAY} AND status IN ('waiting','serving','skipped','done') ORDER BY ${ORDER}`,
+    `SELECT ${COLS} FROM tickets
+      WHERE office = $1
+        AND ((day = ${TODAY} AND status IN ('waiting','serving','skipped','done')) OR status = 'skipped')
+      ORDER BY ${ORDER}`,
+    [off.id],
   );
-  const serving = rows.filter((t) => t.status === "serving").sort((a, b) => (b.called_at ?? "").localeCompare(a.called_at ?? ""));
+  // called_at comes back from the database as a Date, so compare times as numbers (most recent first).
+  const when = (t: Ticket) => (t.called_at ? new Date(t.called_at).getTime() : 0);
+  const serving = rows.filter((t) => t.status === "serving").sort((a, b) => when(b) - when(a));
   const waiting = rows.filter((t) => t.status === "waiting");
-  const skipped = rows.filter((t) => t.status === "skipped").sort((a, b) => (b.called_at ?? "").localeCompare(a.called_at ?? ""));
+  const skipped = rows.filter((t) => t.status === "skipped").sort((a, b) => when(b) - when(a));
   const done = rows.filter((t) => t.status === "done").length;
   return {
     now: new Date().toISOString(),
@@ -126,102 +149,124 @@ export type QueueState = Awaited<ReturnType<typeof getState>>;
 
 /* ───────────────────────── Staff actions ───────────────────────── */
 
-async function finishCurrent(counter: number) {
+async function finishCurrent(office: string, counter: number) {
   const db = await getDb();
   await db.query(
-    `UPDATE tickets SET status = 'done', done_at = NOW() WHERE day = ${TODAY} AND status = 'serving' AND counter = $1`,
-    [counter],
+    `UPDATE tickets SET status = 'done', done_at = NOW() WHERE day = ${TODAY} AND status = 'serving' AND office = $2 AND counter = $1`,
+    [counter, office],
   );
 }
 
-export async function callNext(counter: number) {
-  const c = COUNTERS.find((x) => x.id === counter);
+export async function callNext(officeId: unknown, counter: number) {
+  const off = getOffice(officeId);
+  const c = off.counters.find((x) => x.id === counter);
   if (!c) throw new Error("Unknown counter");
-  await finishCurrent(counter);
+  await finishCurrent(off.id, counter);
   const db = await getDb();
   const [t] = await db.query<Ticket>(
     `UPDATE tickets SET status = 'serving', counter = $1, called_at = NOW()
       WHERE id = (
         SELECT id FROM tickets
-         WHERE day = ${TODAY} AND status = 'waiting' AND service = ANY($2::text[])
+         WHERE day = ${TODAY} AND status = 'waiting' AND office = $3 AND service = ANY($2::text[])
          ORDER BY ${ORDER}
          LIMIT 1 FOR UPDATE SKIP LOCKED)
       RETURNING ${COLS}`,
-    [counter, c.services],
+    [counter, c.services, off.id],
   );
   if (t) {
-    if (t.phone) sendSms(t.phone, `Cainta ${OFFICE_SHORT}: Numero ${t.number}, kayo na po! Pumunta sa ${counterLabel(counter)}.`).catch(() => {});
-    notifyNearlyThere(t.service).catch(() => {});
+    if (t.phone) sendSms(t.phone, `Cainta ${off.short}: Numero ${t.number}, kayo na po! Pumunta sa ${counterLabel(off.id, counter)}.`).catch(() => {});
+    notifyNearlyThere(off.id, t.service).catch(() => {});
   }
   return t ?? null;
 }
 
-export async function callSpecific(counter: number, id: number) {
-  await finishCurrent(counter);
+/** Call a particular number. An unclaimed number from an earlier day can be called too: it becomes today's work. */
+export async function callSpecific(officeId: unknown, counter: number, id: number) {
+  const off = getOffice(officeId);
+  await finishCurrent(off.id, counter);
   const db = await getDb();
   const [t] = await db.query<Ticket>(
-    `UPDATE tickets SET status = 'serving', counter = $1, called_at = NOW(), recalls = recalls + CASE WHEN status = 'skipped' THEN 1 ELSE 0 END
-      WHERE id = $2 AND day = ${TODAY} AND status IN ('waiting','skipped') RETURNING ${COLS}`,
-    [counter, id],
+    `UPDATE tickets SET status = 'serving', counter = $1, called_at = NOW(), day = ${TODAY},
+            recalls = recalls + CASE WHEN status = 'skipped' THEN 1 ELSE 0 END
+      WHERE id = $2 AND office = $3 AND ((day = ${TODAY} AND status = 'waiting') OR status = 'skipped') RETURNING ${COLS}`,
+    [counter, id, off.id],
   );
   if (!t) throw new Error("That number is no longer available.");
-  if (t.phone) sendSms(t.phone, `Cainta ${OFFICE_SHORT}: Numero ${t.number}, kayo na po! Pumunta sa ${counterLabel(counter)}.`).catch(() => {});
+  if (t.phone) sendSms(t.phone, `Cainta ${off.short}: Numero ${t.number}, kayo na po! Pumunta sa ${counterLabel(off.id, counter)}.`).catch(() => {});
   return t;
 }
 
 /** Announce the current number again (bumps called_at so screens re-announce). */
-export async function recall(counter: number) {
+export async function recall(officeId: unknown, counter: number) {
+  const off = getOffice(officeId);
   const db = await getDb();
   const [t] = await db.query<Ticket>(
     `UPDATE tickets SET called_at = NOW(), recalls = recalls + 1
-      WHERE day = ${TODAY} AND status = 'serving' AND counter = $1 RETURNING ${COLS}`,
-    [counter],
+      WHERE day = ${TODAY} AND status = 'serving' AND office = $2 AND counter = $1 RETURNING ${COLS}`,
+    [counter, off.id],
   );
   return t ?? null;
 }
 
-export async function complete(counter: number) {
-  await finishCurrent(counter);
+export async function complete(officeId: unknown, counter: number) {
+  await finishCurrent(getOffice(officeId).id, counter);
 }
 
-/** Client did not show up — moves to the "Unclaimed / Hindi sumipot" list. */
-export async function markUnclaimed(counter: number) {
+/** Client did not show up (or did not collect it) — moves to the "Unclaimed / Hindi sumipot" list, which keeps it until claimed. */
+export async function markUnclaimed(officeId: unknown, counter: number) {
+  const off = getOffice(officeId);
   const db = await getDb();
   await db.query(
-    `UPDATE tickets SET status = 'skipped' WHERE day = ${TODAY} AND status = 'serving' AND counter = $1`,
-    [counter],
+    `UPDATE tickets SET status = 'skipped' WHERE day = ${TODAY} AND status = 'serving' AND office = $2 AND counter = $1`,
+    [counter, off.id],
   );
 }
 
 /** Send the client to another service (e.g. Renewal → Payment) keeping their number. */
-export async function transfer(counter: number, toService: string) {
-  if (!SERVICES.some((s) => s.code === toService)) throw new Error("Unknown service");
+export async function transfer(officeId: unknown, counter: number, toService: string) {
+  const off = getOffice(officeId);
+  if (!off.services.some((s) => s.code === toService)) throw new Error("Unknown service");
   const db = await getDb();
   const [t] = await db.query<Ticket>(
     `UPDATE tickets SET service = $2, status = 'waiting', counter = NULL, called_at = NULL, notified = FALSE
-      WHERE day = ${TODAY} AND status = 'serving' AND counter = $1 RETURNING ${COLS}`,
-    [counter, toService],
+      WHERE day = ${TODAY} AND status = 'serving' AND office = $3 AND counter = $1 RETURNING ${COLS}`,
+    [counter, toService, off.id],
   );
-  if (t?.phone) sendSms(t.phone, `Cainta ${OFFICE_SHORT}: Numero ${t.number}, hintayin po ang tawag para sa ${serviceName(toService)}.`).catch(() => {});
+  if (t?.phone) sendSms(t.phone, `Cainta ${off.short}: Numero ${t.number}, hintayin po ang tawag para sa ${serviceName(toService)}.`).catch(() => {});
   return t ?? null;
 }
 
-/** Put an unclaimed number back at the front of the line. */
-export async function requeue(id: number) {
+/** Put an unclaimed number back at the front of today's line (an older number keeps its place at the front). */
+export async function requeue(officeId: unknown, id: number) {
+  const off = getOffice(officeId);
   const db = await getDb();
-  await db.query(`UPDATE tickets SET status = 'waiting', counter = NULL WHERE id = $1 AND status = 'skipped'`, [id]);
+  await db.query(
+    `UPDATE tickets SET status = 'waiting', counter = NULL, day = ${TODAY} WHERE id = $1 AND office = $2 AND status = 'skipped'`,
+    [id, off.id],
+  );
 }
 
-async function notifyNearlyThere(serviceCode: string) {
+/** The document or release was collected: take it off the unclaimed list. */
+export async function markClaimed(officeId: unknown, id: number) {
+  const off = getOffice(officeId);
+  const db = await getDb();
+  await db.query(
+    `UPDATE tickets SET status = 'done', done_at = NOW(), day = ${TODAY} WHERE id = $1 AND office = $2 AND status = 'skipped'`,
+    [id, off.id],
+  );
+}
+
+async function notifyNearlyThere(office: string, serviceCode: string) {
+  const off = getOffice(office);
   const db = await getDb();
   const rows = await db.query<Ticket>(
-    `SELECT ${COLS} FROM tickets WHERE day = ${TODAY} AND status = 'waiting' AND service = $1 ORDER BY ${ORDER} LIMIT $2`,
-    [serviceCode, NOTIFY_WHEN_AHEAD + 1],
+    `SELECT ${COLS} FROM tickets WHERE day = ${TODAY} AND status = 'waiting' AND office = $3 AND service = $1 ORDER BY ${ORDER} LIMIT $2`,
+    [serviceCode, NOTIFY_WHEN_AHEAD + 1, off.id],
   );
   const t = rows[NOTIFY_WHEN_AHEAD];
   if (!t || !t.phone) return;
   const r = await db.query(`UPDATE tickets SET notified = TRUE WHERE id = $1 AND notified = FALSE RETURNING id`, [t.id]);
   if (r.length) {
-    await sendSms(t.phone, `Cainta ${OFFICE_SHORT}: Numero ${t.number}, ${NOTIFY_WHEN_AHEAD} na lang ang nauuna sa inyo. Pumunta na po malapit sa counter.`);
+    await sendSms(t.phone, `Cainta ${off.short}: Numero ${t.number}, ${NOTIFY_WHEN_AHEAD} na lang ang nauuna sa inyo. Pumunta na po malapit sa counter.`);
   }
 }

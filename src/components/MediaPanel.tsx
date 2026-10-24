@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { SLIDES, VIDEOS } from "@/lib/config";
+import { OfficeId, getOffice } from "@/lib/config";
 import { useLang } from "@/lib/i18n";
 
 function youTubeId(url: string) {
@@ -11,9 +11,10 @@ function playlistId(url: string) {
   return url.match(/[?&]list=([\w-]+)/)?.[1] ?? null;
 }
 
-export function MediaPanel() {
-  const yt = VIDEOS.filter((v) => /youtu/.test(v));
-  const mp4 = VIDEOS.filter((v) => !/youtu/.test(v));
+export function MediaPanel({ office = "bplo" }: { office?: OfficeId }) {
+  const { videos } = getOffice(office);
+  const yt = videos.filter((v) => /youtu/.test(v));
+  const mp4 = videos.filter((v) => !/youtu/.test(v));
 
   if (yt.length) {
     const list = playlistId(yt[0]);
@@ -28,7 +29,7 @@ export function MediaPanel() {
     );
   }
   if (mp4.length) return <Mp4Loop urls={mp4} />;
-  return <Slides />;
+  return <Slides office={office} />;
 }
 
 function Mp4Loop({ urls }: { urls: string[] }) {
@@ -46,9 +47,9 @@ function Mp4Loop({ urls }: { urls: string[] }) {
   );
 }
 
-function Slides() {
+function Slides({ office }: { office: OfficeId }) {
   const lang = useLang();
-  const slides = SLIDES[lang];
+  const slides = getOffice(office).slides[lang];
   const [i, setI] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setI((x) => (x + 1) % slides.length), 12000);

@@ -2,13 +2,14 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { TopBar } from "@/components/Brand";
-import { MINUTES_PER_CLIENT, counterLabel, service } from "@/lib/config";
+import { MINUTES_PER_CLIENT, OfficeId, counterLabel, getOffice, service } from "@/lib/config";
 import { manilaDay, saveTicket, usePolling } from "@/lib/usePolling";
 import { chime, vibrate } from "@/lib/speak";
 import { useLang, useT } from "@/lib/i18n";
 
 interface TicketView {
   id: number;
+  office: OfficeId;
   number: string;
   service: string;
   priority: boolean;
@@ -28,10 +29,11 @@ export default function TicketPage() {
   }, []);
 
   const { data: t, error, status, reload } = usePolling<TicketView>(q ? `/api/tickets/${q.id}?k=${encodeURIComponent(q.k)}` : null, 4000);
+  const off = getOffice(t?.office); // the office this ticket belongs to (BPLO until it loads)
 
   // Remember the ticket on this phone so it shows on the home screen.
   useEffect(() => {
-    if (t && q) saveTicket({ id: t.id, token: q.k, number: t.number, day: manilaDay() });
+    if (t && q) saveTicket({ id: t.id, token: q.k, number: t.number, day: manilaDay(), office: t.office });
   }, [t?.id]);
 
   // Alert when the number is called (or re-called).
@@ -61,7 +63,7 @@ export default function TicketPage() {
         <TopBar />
         <main className="wrap stack">
           <h1>{tr("Hindi makita ang numero", "We couldn't find this ticket")}</h1>
-          <Link href="/kiosk" className="btn btn-gold btn-xl btn-block">
+          <Link href={off.paths.kiosk} className="btn btn-gold btn-xl btn-block">
             {tr("Kumuha ng bagong numero", "Get a new number")}
           </Link>
         </main>
@@ -73,7 +75,7 @@ export default function TicketPage() {
 
   return (
     <>
-      <TopBar />
+      <TopBar office={off.id} />
       <main className="wrap stack">
         {error && (
           <div className="alert alert-red" role="alert">
@@ -89,7 +91,7 @@ export default function TicketPage() {
               <div className="called" role="alert" aria-live="assertive">
                 <div style={{ fontWeight: 800, fontSize: "1.2em" }}>{tr("Kayo na po!", "It's your turn!")}</div>
                 <div className="go">
-                  {tr("Pumunta sa", "Please go to")} {counterLabel(t.counter)}
+                  {tr("Pumunta sa", "Please go to")} {counterLabel(t.office, t.counter)}
                 </div>
               </div>
             )}
@@ -156,11 +158,11 @@ export default function TicketPage() {
             )}
 
             {(t.status === "done" || t.status === "cancelled") && (
-              <Link href="/kiosk" className="btn btn-gold btn-xl btn-block">
+              <Link href={off.paths.kiosk} className="btn btn-gold btn-xl btn-block">
                 {tr("Kumuha ng bagong numero", "Get a new number")}
               </Link>
             )}
-            <Link href="/" className="btn btn-ghost btn-block">
+            <Link href={off.paths.home} className="btn btn-ghost btn-block">
               ⌂ Home
             </Link>
             {t.status === "waiting" && (
