@@ -33,20 +33,59 @@ export function spokenNumber(n: string) {
   return `${prio ? "Priority " : ""}${letter}, ${digits}`;
 }
 
+// Names of common female system voices (Windows, Android/Chrome, Apple); used when a voice has no gender label.
+const FEMALE = /zira|aria|jenny|michelle|emma|ana|sonia|libby|natasha|blessica|female|woman|samantha|karen|moira|tessa|victoria|fiona|google (us|uk) english|google .*female|catherine|hazel|susan|heera|linda/i;
+const MALE = /(david|mark|guy|james|george|ryan|male|man|alex|daniel|fred|ravi|sean|richard)/i;
+
+function pickVoice(langs: RegExp[]): SpeechSynthesisVoice | undefined {
+  const all = window.speechSynthesis.getVoices();
+  for (const re of langs) {
+    const cands = all.filter((v) => re.test(v.lang));
+    const pick = cands.find((v) => FEMALE.test(v.name) && !MALE.test(v.name)) ?? cands.find((v) => !MALE.test(v.name));
+    if (pick) return pick;
+  }
+  return undefined;
+}
+
+function say(text: string, langs: RegExp[], lang: string) {
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang;
+  u.rate = 0.9;
+  u.pitch = 1.15; // a little higher, so a default voice still sounds like a woman
+  u.volume = 1;
+  const v = pickVoice(langs);
+  if (v) {
+    u.voice = v;
+    u.lang = v.lang;
+  }
+  window.speechSynthesis.speak(u);
+}
+
+/** Chime, then a woman's voice reads the number and the counter: English first, then Tagalog. */
 export function announce(number: string, counter: string) {
   chime();
   if (!("speechSynthesis" in window)) return;
-  const text = `Number ${spokenNumber(number)}. Please proceed to ${counter}. Numero ${spokenNumber(number)}, pumunta po sa ${counter}.`;
-  setTimeout(() => {
+  const go = () => {
     try {
       window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = 0.85;
-      u.lang = "en-PH";
-      const v = window.speechSynthesis.getVoices().find((v) => /en[-_](PH|US|GB)/i.test(v.lang));
-      if (v) u.voice = v;
-      window.speechSynthesis.speak(u);
+      const n = spokenNumber(number);
+      say(`Now serving. Number ${n}. Please proceed to ${counter}.`, [/en[-_](PH|US|GB)/i, /^en/i], "en-PH");
+      say(`Numero ${n}, pumunta po sa ${counter}.`, [/fil|tl/i, /en[-_](PH|US|GB)/i, /^en/i], /fil|tl/i.test(window.speechSynthesis.getVoices().map((v) => v.lang).join()) ? "fil-PH" : "en-PH");
     } catch {}
+  };
+  // Voices load late in some browsers: wait for them once if the list is still empty.
+  setTimeout(() => {
+    if (window.speechSynthesis.getVoices().length) return go();
+    let ran = false;
+    const done = () => {
+      window.speechSynthesis.removeEventListener("voiceschanged", done);
+      if (!ran) {
+        ran = true;
+        go();
+      }
+    };
+    window.speechSynthesis.addEventListener("voiceschanged", done);
+    setTimeout(done, 1500);
   }, 950);
 }
 
