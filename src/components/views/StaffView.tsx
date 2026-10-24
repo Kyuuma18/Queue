@@ -314,7 +314,7 @@ function CounterDesk({
           )}
 
           {state && (
-            <div className="bigstat" style={{ gridTemplateColumns: "repeat(3, 1fr)", margin: 0 }}>
+            <div className="bigstat" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", margin: 0 }}>
               <div>
                 <b>{myWaiting.length}</b>
                 <small>{t("Naghihintay", "Waiting")}</small>
