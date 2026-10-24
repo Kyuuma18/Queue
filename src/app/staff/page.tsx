@@ -3,9 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import { TopBar } from "@/components/Brand";
 import { COUNTERS, SERVICES, service } from "@/lib/config";
 import { useQueueState } from "@/lib/usePolling";
+import { useLang, useT } from "@/lib/i18n";
 
 /* ───────── PIN login ───────── */
 function Login({ onDone }: { onDone: () => void }) {
+  const t = useT();
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -22,7 +24,11 @@ function Login({ onDone }: { onDone: () => void }) {
     setBusy(false);
     if (r.ok) onDone();
     else {
-      setError(j.error ?? "Wrong PIN");
+      setError(
+        r.status === 429
+          ? t("Napakaraming subok. Maghintay ng isang minuto.", "Too many tries. Please wait a minute.")
+          : t("Maling PIN", "Wrong PIN"),
+      );
       setPin("");
     }
   }
@@ -37,9 +43,10 @@ function Login({ onDone }: { onDone: () => void }) {
   return (
     <main className="wrap" style={{ maxWidth: 440 }}>
       <h1 style={{ textAlign: "center" }}>
-        Staff Login <span className="tl">Ilagay ang PIN</span>
+        {t("Pag-login ng Staff", "Staff Login")}
+        <span className="tl">{t("Ilagay ang PIN", "Enter your PIN")}</span>
       </h1>
-      <div className="pin-dots" aria-label={`${pin.length} digits entered`}>
+      <div className="pin-dots" aria-label={t(`${pin.length} na numero ang naipasok`, `${pin.length} digits entered`)}>
         {Array.from({ length: Math.max(4, pin.length) }).map((_, i) => (
           <span key={i} className={i < pin.length ? "on" : ""} />
         ))}
@@ -55,7 +62,7 @@ function Login({ onDone }: { onDone: () => void }) {
             key={k}
             onClick={() => press(k)}
             style={k === "OK" ? { background: "var(--navy)", color: "#fff", borderColor: "var(--navy)" } : undefined}
-            aria-label={k === "⌫" ? "Delete" : k}
+            aria-label={k === "⌫" ? t("Burahin", "Delete") : k}
           >
             {k}
           </button>
@@ -67,11 +74,11 @@ function Login({ onDone }: { onDone: () => void }) {
 
 /* ───────── Counter picker ───────── */
 function PickCounter({ onPick }: { onPick: (id: number) => void }) {
+  const t = useT();
+  const lang = useLang();
   return (
     <main className="wrap stack">
-      <h1>
-        Aling counter kayo? <span className="tl">Which counter are you at?</span>
-      </h1>
+      <h1>{t("Aling counter kayo?", "Which counter are you at?")}</h1>
       <div className="grid-2">
         {COUNTERS.map((c) => (
           <button key={c.id} className="choice" onClick={() => onPick(c.id)}>
@@ -81,7 +88,7 @@ function PickCounter({ onPick }: { onPick: (id: number) => void }) {
             <span>
               <span className="choice-title">{c.label}</span>
               <span className="choice-sub" style={{ display: "block" }}>
-                {c.services.map((s) => service(s)?.name).join(" · ")}
+                {c.services.map((s) => (lang === "en" ? service(s)?.name : service(s)?.tl)).join(" · ")}
               </span>
             </span>
           </button>
@@ -93,6 +100,7 @@ function PickCounter({ onPick }: { onPick: (id: number) => void }) {
 
 /* ───────── Main counter screen ───────── */
 export default function Staff() {
+  const t = useT();
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [counter, setCounter] = useState<number | null>(null);
 
@@ -122,10 +130,10 @@ export default function Staff() {
 
   return (
     <>
-      <TopBar subtitle="Staff · Counter" lang={false} />
+      <TopBar subtitle={t("Kawani · Counter", "Staff · Counter")} />
       {authed === null ? (
         <main className="wrap">
-          <p className="lead">Loading…</p>
+          <p className="lead">{t("Naglo-load…", "Loading…")}</p>
         </main>
       ) : !authed ? (
         <Login onDone={() => setAuthed(true)} />
@@ -149,6 +157,9 @@ function CounterDesk({
   onLogout: () => void;
   onExpired: () => void;
 }) {
+  const t = useT();
+  const lang = useLang();
+  const sname = (s?: { name: string; tl: string }) => (lang === "en" ? s?.name : s?.tl);
   const { state, error, reload } = useQueueState(3000);
   const c = COUNTERS.find((x) => x.id === counter)!;
   const [busy, setBusy] = useState(false);
@@ -178,11 +189,11 @@ function CounterDesk({
       const j = await r.json();
       if (r.status === 401) return onExpired();
       if (!r.ok) throw new Error(j.error);
-      if (action === "next" && !j.ticket) setMsg("Wala nang naghihintay. · No one is waiting.");
+      if (action === "next" && !j.ticket) setMsg(t("Wala nang naghihintay.", "No one is waiting."));
       setShowTransfer(false);
       await reload();
     } catch (e: any) {
-      setMsg(e.message ?? "Something went wrong");
+      setMsg(e.message ?? t("May problema.", "Something went wrong."));
     } finally {
       setBusy(false);
     }
@@ -195,24 +206,26 @@ function CounterDesk({
       <div className="row" style={{ alignItems: "center", marginBottom: 12 }}>
         <h1 style={{ margin: 0, flex: 1 }}>{c.label}</h1>
         <button className="btn btn-ghost btn-sm" onClick={onChange}>
-          Palitan · Change
+          {t("Palitan", "Change")}
         </button>
         <button className="btn btn-ghost btn-sm" onClick={onLogout}>
-          Logout
+          {t("Mag-logout", "Logout")}
         </button>
       </div>
 
       <div className="staff-grid">
         <section className="card stack">
           <div className="serving-box">
-            <div className="eyebrow">Kasalukuyang pinagsisilbihan · Now serving</div>
+            <div className="eyebrow">{t("Kasalukuyang pinagsisilbihan", "Now serving")}</div>
             <div className="serving-num">{mine?.number ?? "—"}</div>
             {mine && (
               <div style={{ marginTop: 8 }}>
                 <span className="pill">
-                  {s?.icon} {s?.name}
+                  {s?.icon} {sname(s ?? undefined)}
                 </span>{" "}
-                {mine.priority && <span className="pill pill-gold">★ Priority — check ID</span>}
+                {mine.priority && (
+                  <span className="pill pill-gold">{t("★ Priority — tingnan ang ID", "★ Priority — check ID")}</span>
+                )}
               </div>
             )}
           </div>
@@ -226,31 +239,31 @@ function CounterDesk({
 
           <div className="action-grid">
             <button className="btn btn-green btn-xl span-2" disabled={busy} onClick={() => act("next")}>
-              ▶ Tawagin ang Susunod · Call Next
+              ▶ {t("Tawagin ang Susunod", "Call Next")}
             </button>
             <button className="btn btn-ghost" disabled={busy || !mine} onClick={() => act("recall")}>
-              🔊 Tawagin Ulit · Recall
+              🔊 {t("Tawagin Ulit", "Recall")}
             </button>
             <button className="btn btn-primary" disabled={busy || !mine} onClick={() => act("complete")}>
-              ✔ Tapos · Complete
+              ✔ {t("Tapos", "Complete")}
             </button>
             <button className="btn btn-red" disabled={busy || !mine} onClick={() => act("unclaimed")}>
-              ✖ Hindi Sumipot · No-show
+              ✖ {t("Hindi Sumipot", "No-show")}
             </button>
             <button className="btn btn-gold" disabled={busy || !mine} onClick={() => setShowTransfer((v) => !v)}>
-              ⇄ Ilipat · Transfer
+              ⇄ {t("Ilipat", "Transfer")}
             </button>
           </div>
 
           {showTransfer && mine && (
             <div className="stack" style={{ gap: 10 }}>
-              <b>Ilipat sa · Send this client to:</b>
+              <b>{t("Ilipat sa:", "Send this client to:")}</b>
               {SERVICES.filter((x) => x.code !== mine.service).map((x) => (
                 <button key={x.code} className="choice" style={{ minHeight: 76 }} disabled={busy} onClick={() => act("transfer", { service: x.code })}>
                   <span className="choice-icon" aria-hidden style={{ width: 52, height: 52, fontSize: 26 }}>
                     {x.icon}
                   </span>
-                  <span className="choice-title">{x.name}</span>
+                  <span className="choice-title">{sname(x)}</span>
                 </button>
               ))}
             </div>
@@ -260,15 +273,15 @@ function CounterDesk({
             <div className="bigstat" style={{ gridTemplateColumns: "repeat(3, 1fr)", margin: 0 }}>
               <div>
                 <b>{myWaiting.length}</b>
-                <small>Waiting</small>
+                <small>{t("Naghihintay", "Waiting")}</small>
               </div>
               <div>
                 <b>{state.stats.done}</b>
-                <small>Done today</small>
+                <small>{t("Tapos ngayon", "Done today")}</small>
               </div>
               <div>
                 <b>{state.stats.unclaimed}</b>
-                <small>No-show</small>
+                <small>{t("Hindi sumipot", "No-show")}</small>
               </div>
             </div>
           )}
@@ -277,27 +290,27 @@ function CounterDesk({
         <section className="card">
           <div className="tabs" role="group">
             <button aria-pressed={tab === "waiting"} onClick={() => setTab("waiting")}>
-              Naghihintay ({myWaiting.length})
+              {t("Naghihintay", "Waiting")} ({myWaiting.length})
             </button>
             <button aria-pressed={tab === "unclaimed"} onClick={() => setTab("unclaimed")}>
-              Hindi Sumipot ({state?.skipped.length ?? 0})
+              {t("Hindi Sumipot", "No-show")} ({state?.skipped.length ?? 0})
             </button>
           </div>
           <input
             className="field"
             style={{ minHeight: 56, fontSize: "1em", letterSpacing: 0 }}
-            placeholder="Hanapin ang numero · Search number"
+            placeholder={t("Hanapin ang numero", "Search number")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
           <ul className="list" style={{ marginTop: 8 }}>
-            {list.length === 0 && <li style={{ color: "var(--muted)" }}>Walang laman · Nothing here</li>}
-            {list.slice(0, 40).map((t) => (
-              <li key={t.id}>
-                <span className="n">{t.number}</span>
+            {list.length === 0 && <li style={{ color: "var(--muted)" }}>{t("Walang laman", "Nothing here")}</li>}
+            {list.slice(0, 40).map((tk) => (
+              <li key={tk.id}>
+                <span className="n">{tk.number}</span>
                 <span className="grow">
-                  {service(t.service)?.name}
-                  {t.priority && (
+                  {sname(service(tk.service))}
+                  {tk.priority && (
                     <>
                       {" "}
                       <span className="pill pill-gold" style={{ fontSize: "0.8em", padding: "2px 8px" }}>
@@ -307,12 +320,12 @@ function CounterDesk({
                   )}
                 </span>
                 {tab === "unclaimed" && (
-                  <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => act("requeue", { id: t.id })}>
-                    Ibalik
+                  <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => act("requeue", { id: tk.id })}>
+                    {t("Ibalik", "Put back")}
                   </button>
                 )}
-                <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => act("call", { id: t.id })}>
-                  Tawagin
+                <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => act("call", { id: tk.id })}>
+                  {t("Tawagin", "Call")}
                 </button>
               </li>
             ))}
