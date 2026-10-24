@@ -41,8 +41,20 @@ export interface Office {
    * Either way numbers start again at 1 every day.
    */
   numbering: "per-service" | "running";
-  /** When set, staff create tickets with a form: these are the choices for the two drop-downs. */
-  form?: { appTypes: string[]; bizTypes: string[] };
+  /**
+   * When set, staff create tickets with a form (REGULAR or PRIORITY, then these fields).
+   * `extra` is the last field: a Business Name (GSO), or an Account Number that defaults to TAXPAYER (BPLO).
+   * `showNumber` shows the automatic number on the form as the "Folder Number" (GSO).
+   * `service` is the line these tickets join (the first line if not set).
+   */
+  form?: {
+    /** Optional drop-downs. Leave out to hide the field everywhere (form, list, filter, export). */
+    appTypes?: string[];
+    bizTypes?: string[];
+    extra: "businessName" | "accountNumber";
+    showNumber?: boolean;
+    service?: string;
+  };
   /** Page addresses for this office's screens. */
   paths: { home: string; kiosk: string; display: string; staff: string };
   services: Service[];
@@ -76,6 +88,12 @@ export const OFFICES: Record<OfficeId, Office> = {
     name: "Cainta Business Permit & Licensing Office",
     short: "BPLO & Treasury",
     numbering: "per-service",
+    // Staff can create a ticket for a client with the Account Number (TAXPAYER unless typed).
+    // To bring back the two drop-downs, add: appTypes: ["NEW", "RENEWAL"], bizTypes: ["SINGLE", "PARTNERSHIP", "CORPORATION", "COOPERATIVE"],
+    form: {
+      extra: "accountNumber",
+      service: "A",
+    },
     paths: { home: "/", kiosk: "/kiosk", display: "/display", staff: "/staff" },
     services: [
       {
@@ -137,8 +155,8 @@ export const OFFICES: Record<OfficeId, Office> = {
     // GSO has one line with one running folder number (001, 002 …). Staff create the tickets with a form.
     numbering: "running",
     form: {
-      appTypes: ["NEW", "RENEWAL", "RELEASE"],
-      bizTypes: ["SINGLE", "PARTNERSHIP", "CORPORATION", "COOPERATIVE"],
+      extra: "businessName",
+      showNumber: true,
     },
     paths: { home: "/gso", kiosk: "/gso/kiosk", display: "/gso/display", staff: "/gso/staff" },
     services: [

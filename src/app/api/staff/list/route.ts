@@ -25,7 +25,7 @@ export async function GET(req: Request) {
       const first = p.get("from") ?? new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
       const last = p.get("to") ?? first;
       const name = `${office || "bplo"}-queue-${first}${last !== first ? "_to_" + last : ""}.csv`;
-      return new Response(toCsv(rows), {
+      return new Response(toCsv(rows, office), {
         headers: {
           "Content-Type": "text/csv; charset=utf-8",
           "Content-Disposition": `attachment; filename="${name}"`,

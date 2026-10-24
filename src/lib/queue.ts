@@ -31,6 +31,8 @@ export interface Ticket {
   app_type: string | null;
   biz_type: string | null;
   business_name: string | null;
+  /** BPLO: the account number, or TAXPAYER when the business has none. */
+  account_no: string | null;
 }
 
 /** What the public may see about a ticket (no phone number, no token). */
@@ -40,7 +42,7 @@ export type PublicTicket = Pick<
 >;
 
 const COLS = `id, office, number, service, priority, phone, status, counter, created_at,
-  to_char(${ISSUED_DAY}, 'YYYY-MM-DD') AS cday, called_at, done_at, recalls, token, app_type, biz_type, business_name`;
+  to_char(${ISSUED_DAY}, 'YYYY-MM-DD') AS cday, called_at, done_at, recalls, token, app_type, biz_type, business_name, account_no`;
 
 export function toPublic(t: Ticket): PublicTicket {
   return {
@@ -72,21 +74,31 @@ export interface TicketDetails {
   appType?: string;
   bizType?: string;
   businessName?: string;
+  accountNumber?: string;
 }
 
-/** Check the create-ticket form for an office that uses one (GSO) and tidy the text. */
+/** Check the create-ticket form for an office that uses one (GSO, BPLO) and tidy the text. */
 export function validateDetails(officeId: unknown, d: TicketDetails): Required<TicketDetails> {
   const off = getOffice(officeId);
-  const appType = String(d.appType ?? "").trim().toUpperCase();
-  const bizType = String(d.bizType ?? "").trim().toUpperCase();
-  const businessName = String(d.businessName ?? "").trim().replace(/\s+/g, " ");
+  // The two drop-downs only exist when the office's settings list their choices.
+  const appType = off.form?.appTypes ? String(d.appType ?? "").trim().toUpperCase() : "";
+  const bizType = off.form?.bizTypes ? String(d.bizType ?? "").trim().toUpperCase() : "";
+  let businessName = String(d.businessName ?? "").trim().replace(/\s+/g, " ");
+  let accountNumber = String(d.accountNumber ?? "").trim().toUpperCase().replace(/\s+/g, " ");
   if (off.form) {
-    if (!off.form.appTypes.includes(appType)) throw new Error("Please choose the application type.");
-    if (!off.form.bizTypes.includes(bizType)) throw new Error("Please choose the business type.");
-    if (!businessName) throw new Error("Please enter the business name.");
+    if (off.form.appTypes && !off.form.appTypes.includes(appType)) throw new Error("Please choose the application type.");
+    if (off.form.bizTypes && !off.form.bizTypes.includes(bizType)) throw new Error("Please choose the business type.");
+    if (off.form.extra === "businessName") {
+      accountNumber = "";
+      if (!businessName) throw new Error("Please enter the business name.");
+    } else {
+      businessName = "";
+      if (!accountNumber) throw new Error("Please enter the account number (or leave it as TAXPAYER).");
+      if (!/^[A-Z0-9][A-Z0-9 \-\/]{0,39}$/.test(accountNumber)) throw new Error("The account number can only have letters, numbers, spaces, - and /.");
+    }
   }
   if (businessName.length > 120) throw new Error("The business name is too long.");
-  return { appType, bizType, businessName };
+  return { appType, bizType, businessName, accountNumber };
 }
 
 /** How many numbers this office has issued today, counting the line the number belongs to. */
@@ -109,7 +121,7 @@ function formatNumber(off: ReturnType<typeof getOffice>, serviceCode: string, pr
 /** The number the next ticket will get (shown as the "Folder Number" on the create-ticket form). */
 export async function nextNumber(officeId: unknown, priority: boolean, serviceCode?: string) {
   const off = getOffice(officeId);
-  const code = serviceCode ?? off.services[0].code;
+  const code = serviceCode ?? off.form?.service ?? off.services[0].code;
   const n = await issuedToday(off.id, code, off.numbering === "running");
   return formatNumber(off, code, priority, n + 1);
 }
@@ -134,9 +146,20 @@ export async function createTicket(
     const dup = await db.query(`SELECT 1 FROM tickets WHERE office = $1 AND number = $2 AND ${ISSUED_DAY} = ${TODAY}`, [off.id, number]);
     if (dup.length) continue;
     const [t] = await db.query<Ticket>(
-      `INSERT INTO tickets (office, number, service, priority, phone, token, app_type, biz_type, business_name)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING ${COLS}`,
-      [off.id, number, serviceCode, priority, phone, token, text(details.appType), text(details.bizType), text(details.businessName)],
+      `INSERT INTO tickets (office, number, service, priority, phone, token, app_type, biz_type, business_name, account_no)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING ${COLS}`,
+      [
+        off.id,
+        number,
+        serviceCode,
+        priority,
+        phone,
+        token,
+        text(details.appType),
+        text(details.bizType),
+        text(details.businessName),
+        text(details.accountNumber),
+      ],
     );
     const ahead = await countAhead(t);
     if (phone) {
@@ -327,7 +350,7 @@ export interface ListFilter {
 
 export type ListRow = Pick<
   Ticket,
-  "id" | "number" | "service" | "priority" | "status" | "counter" | "cday" | "created_at" | "called_at" | "done_at" | "app_type" | "biz_type" | "business_name"
+  "id" | "number" | "service" | "priority" | "status" | "counter" | "cday" | "created_at" | "called_at" | "done_at" | "app_type" | "biz_type" | "business_name" | "account_no"
 >;
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -352,7 +375,7 @@ export async function listTickets(officeId: unknown, f: ListFilter = {}): Promis
         AND ($5::text IS NULL OR status = $5)
         AND ($6::text = '' OR ($6 = 'priority' AND priority) OR ($6 = 'regular' AND NOT priority))
         AND ($7::text IS NULL OR app_type = $7)
-        AND ($8::text IS NULL OR number ILIKE $8 OR business_name ILIKE $8)
+        AND ($8::text IS NULL OR number ILIKE $8 OR business_name ILIKE $8 OR account_no ILIKE $8)
       ORDER BY created_at ASC, id ASC
       LIMIT 5000`,
     [off.id, from, to, !!f.carried, status, type, app, q],
@@ -371,6 +394,7 @@ export async function listTickets(officeId: unknown, f: ListFilter = {}): Promis
     app_type: t.app_type,
     biz_type: t.biz_type,
     business_name: t.business_name,
+    account_no: t.account_no,
   }));
 }
 

@@ -9,34 +9,40 @@ interface Created {
   app_type: string | null;
   biz_type: string | null;
   business_name: string | null;
+  account_no: string | null;
   created_at: string;
 }
 
 const LAST = (office: OfficeId) => `cq_form_${office}`;
+const TAXPAYER = "TAXPAYER";
 
 /**
- * "Create Ticket": staff pick REGULAR or PRIORITY, fill in the form, and the next folder number
- * (001, 002 …) is issued automatically. That same number is what the TV screen shows.
+ * "Create Ticket": staff pick REGULAR or PRIORITY, fill in the form, and the next number is issued
+ * automatically (GSO: the Folder Number 001, 002 … shown on the TV; BPLO: the account number is
+ * TAXPAYER unless staff press "Enable Account Number" and type one).
  */
 export function CreateTicketPanel({ office, onExpired }: { office: OfficeId; onExpired: () => void }) {
   const t = useT();
   const off = getOffice(office);
   const form = off.form!;
+  const byName = form.extra === "businessName";
   const [open, setOpen] = useState<null | "regular" | "priority">(null);
-  const [appType, setAppType] = useState(form.appTypes.includes("RENEWAL") ? "RENEWAL" : form.appTypes[0]);
-  const [bizType, setBizType] = useState(form.bizTypes[0]);
+  const [appType, setAppType] = useState(form.appTypes?.includes("RENEWAL") ? "RENEWAL" : form.appTypes?.[0] ?? "");
+  const [bizType, setBizType] = useState(form.bizTypes?.[0] ?? "");
   const [name, setName] = useState("");
+  const [accountOn, setAccountOn] = useState(false); // BPLO: false = TAXPAYER, true = type an account number
+  const [account, setAccount] = useState("");
   const [next, setNext] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [created, setCreated] = useState<Created | null>(null);
 
-  // Remember the last choices, so staff only retype the business name.
+  // Remember the last choices, so staff only retype the business name / account number.
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem(LAST(office)) ?? "{}");
-      if (form.appTypes.includes(s.appType)) setAppType(s.appType);
-      if (form.bizTypes.includes(s.bizType)) setBizType(s.bizType);
+      if (form.appTypes?.includes(s.appType)) setAppType(s.appType);
+      if (form.bizTypes?.includes(s.bizType)) setBizType(s.bizType);
     } catch {}
   }, [office]);
 
@@ -55,7 +61,9 @@ export function CreateTicketPanel({ office, onExpired }: { office: OfficeId; onE
     setCreated(null);
     setError("");
     setName("");
-    loadNext(kind === "priority");
+    setAccountOn(false);
+    setAccount("");
+    if (form.showNumber) loadNext(kind === "priority");
   }
 
   function close() {
@@ -64,16 +72,26 @@ export function CreateTicketPanel({ office, onExpired }: { office: OfficeId; onE
     setError("");
   }
 
+  const ready = byName ? !!name.trim() : !accountOn || !!account.trim();
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (busy || !open) return;
+    if (busy || !open || !ready) return;
     setBusy(true);
     setError("");
     try {
       const r = await fetch("/api/staff/ticket", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ office, priority: open === "priority", appType, bizType, businessName: name }),
+        body: JSON.stringify({
+          office,
+          priority: open === "priority",
+          appType,
+          bizType,
+          ...(form.appTypes ? { appType } : {}),
+          ...(form.bizTypes ? { bizType } : {}),
+          ...(byName ? { businessName: name } : { accountNumber: accountOn ? account : TAXPAYER }),
+        }),
       });
       if (r.status === 401) return onExpired();
       const j = await r.json();
@@ -118,10 +136,17 @@ export function CreateTicketPanel({ office, onExpired }: { office: OfficeId; onE
                   {t("Ang numero ng ticket", "Ticket number")} · {created.priority ? "PRIORITY" : "REGULAR"}
                 </p>
                 <div className="big-queue-number">{created.number}</div>
-                <p style={{ margin: 0, fontWeight: 700 }}>{created.business_name}</p>
-                <p className="muted" style={{ margin: 0 }}>
-                  {created.app_type} · {created.biz_type}
-                </p>
+                {created.business_name && <p style={{ margin: 0, fontWeight: 700 }}>{created.business_name}</p>}
+                {created.account_no && (
+                  <p style={{ margin: 0, fontWeight: 700 }}>
+                    {t("Account Number", "Account Number")}: {created.account_no}
+                  </p>
+                )}
+                {(created.app_type || created.biz_type) && (
+                  <p className="muted" style={{ margin: 0 }}>
+                    {[created.app_type, created.biz_type].filter(Boolean).join(" · ")}
+                  </p>
+                )}
                 <p className="muted" style={{ margin: 0 }}>
                   {new Date(created.created_at).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}
                 </p>
@@ -142,38 +167,78 @@ export function CreateTicketPanel({ office, onExpired }: { office: OfficeId; onE
                 <h2 style={{ margin: 0 }}>
                   {t("Gumawa ng Ticket para sa", "Generate Ticket for")} <span className={open === "priority" ? "kind kind-p" : "kind"}>{kindLabel}</span>
                 </h2>
-                <label className="fl">
-                  {t("Uri ng Aplikasyon", "Application Type")}
-                  <select className="field" value={appType} onChange={(e) => setAppType(e.target.value)}>
-                    {form.appTypes.map((x) => (
-                      <option key={x}>{x}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="fl">
-                  {t("Uri ng Negosyo", "Business Type")}
-                  <select className="field" value={bizType} onChange={(e) => setBizType(e.target.value)}>
-                    {form.bizTypes.map((x) => (
-                      <option key={x}>{x}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="fl">
-                  {t("Folder Number (awtomatiko)", "Folder Number (automatic)")}
-                  <input className="field" value={next || "…"} readOnly aria-readonly="true" style={{ background: "var(--cream)", fontWeight: 800 }} />
-                </label>
-                <label className="fl">
-                  {t("Pangalan ng Negosyo", "Business Name")}
-                  <input
-                    className="field"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder={t("ILAGAY ANG PANGALAN NG NEGOSYO", "ENTER BUSINESS NAME")}
-                    maxLength={120}
-                    autoFocus
-                    required
-                  />
-                </label>
+                {form.appTypes && (
+                  <label className="fl">
+                    {t("Uri ng Aplikasyon", "Application Type")}
+                    <select className="field" value={appType} onChange={(e) => setAppType(e.target.value)}>
+                      {form.appTypes.map((x) => (
+                        <option key={x}>{x}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {form.bizTypes && (
+                  <label className="fl">
+                    {t("Uri ng Negosyo", "Business Type")}
+                    <select className="field" value={bizType} onChange={(e) => setBizType(e.target.value)}>
+                      {form.bizTypes.map((x) => (
+                        <option key={x}>{x}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                {form.showNumber && (
+                  <label className="fl">
+                    {t("Folder Number (awtomatiko)", "Folder Number (automatic)")}
+                    <input className="field" value={next || "…"} readOnly aria-readonly="true" style={{ background: "var(--cream)", fontWeight: 800 }} />
+                  </label>
+                )}
+
+                {byName ? (
+                  <label className="fl">
+                    {t("Pangalan ng Negosyo", "Business Name")}
+                    <input
+                      className="field"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder={t("ILAGAY ANG PANGALAN NG NEGOSYO", "ENTER BUSINESS NAME")}
+                      maxLength={120}
+                      autoFocus
+                      required
+                    />
+                  </label>
+                ) : (
+                  <>
+                    <label className="fl">
+                      {t("Account Number", "Account Number")}
+                      <input
+                        className="field"
+                        value={accountOn ? account : TAXPAYER}
+                        onChange={(e) => setAccount(e.target.value.toUpperCase())}
+                        placeholder={t("ILAGAY ANG ACCOUNT NUMBER", "ENTER ACCOUNT NUMBER")}
+                        disabled={!accountOn}
+                        maxLength={40}
+                        autoFocus={accountOn}
+                        style={accountOn ? undefined : { background: "#e9ecef", color: "var(--muted)" }}
+                      />
+                    </label>
+                    <div>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        aria-pressed={accountOn}
+                        onClick={() => {
+                          setAccountOn((v) => !v);
+                          setAccount("");
+                        }}
+                      >
+                        {accountOn ? t("I-disable ang Account Number (TAXPAYER)", "Disable Account Number (TAXPAYER)") : t("I-enable ang Account Number", "Enable Account Number")}
+                      </button>
+                    </div>
+                  </>
+                )}
+
                 {error && (
                   <div className="alert alert-red" role="alert">
                     {error}
@@ -183,7 +248,7 @@ export function CreateTicketPanel({ office, onExpired }: { office: OfficeId; onE
                   <button type="button" className="btn btn-ghost" onClick={close}>
                     {t("Kanselahin", "Cancel")}
                   </button>
-                  <button type="submit" className="btn btn-primary" disabled={busy || !name.trim()}>
+                  <button type="submit" className="btn btn-primary" disabled={busy || !ready}>
                     {busy ? t("Sandali lang…", "Please wait…") : t("Gumawa ng Ticket", "Generate Ticket")}
                   </button>
                 </div>

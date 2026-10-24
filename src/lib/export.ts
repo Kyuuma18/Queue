@@ -1,3 +1,4 @@
+import { getOffice } from "./config";
 import type { ListRow } from "./queue";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -24,39 +25,26 @@ function cell(v: unknown) {
 }
 
 /** The queue list as a CSV file that opens correctly in Excel (UTF-8 with a byte-order mark). */
-export function toCsv(rows: ListRow[]) {
-  const head = [
-    "Date issued",
-    "Queue number",
-    "Type",
-    "Application type",
-    "Business type",
-    "Business name",
-    "Status",
-    "Counter",
-    "Time issued",
-    "Time called",
-    "Time done",
+export function toCsv(rows: ListRow[], officeId?: unknown) {
+  const form = getOffice(officeId).form;
+  const byAccount = form?.extra === "accountNumber";
+  // Columns for the optional fields only appear when the office uses them.
+  const cols: [string, (r: ListRow) => unknown][] = [
+    ["Date issued", (r) => r.cday],
+    ["Queue number", (r) => r.number],
+    ["Type", (r) => (r.priority ? "PRIORITY" : "REGULAR")],
+    ...(form?.appTypes ? [["Application type", (r: ListRow) => r.app_type] as [string, (r: ListRow) => unknown]] : []),
+    ...(form?.bizTypes ? [["Business type", (r: ListRow) => r.biz_type] as [string, (r: ListRow) => unknown]] : []),
+    ...(form
+      ? [[byAccount ? "Account number" : "Business name", (r: ListRow) => (byAccount ? r.account_no : r.business_name)] as [string, (r: ListRow) => unknown]]
+      : []),
+    ["Status", (r) => statusLabel(r.status)],
+    ["Counter", (r) => r.counter],
+    ["Time issued", (r) => clock(r.created_at)],
+    ["Time called", (r) => clock(r.called_at)],
+    ["Time done", (r) => clock(r.done_at)],
   ];
-  const lines = [head.map(cell).join(",")];
-  for (const r of rows) {
-    lines.push(
-      [
-        r.cday,
-        r.number,
-        r.priority ? "PRIORITY" : "REGULAR",
-        r.app_type,
-        r.biz_type,
-        r.business_name,
-        statusLabel(r.status),
-        r.counter,
-        clock(r.created_at),
-        clock(r.called_at),
-        clock(r.done_at),
-      ]
-        .map(cell)
-        .join(","),
-    );
-  }
+  const lines = [cols.map(([h]) => cell(h)).join(",")];
+  for (const r of rows) lines.push(cols.map(([, f]) => cell(f(r))).join(","));
   return "﻿" + lines.join("\r\n") + "\r\n";
 }

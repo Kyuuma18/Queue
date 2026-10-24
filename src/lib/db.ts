@@ -29,6 +29,7 @@ ALTER TABLE tickets ADD COLUMN IF NOT EXISTS office    TEXT NOT NULL DEFAULT 'bp
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS app_type      TEXT;
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS biz_type      TEXT;
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS business_name TEXT;
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS account_no    TEXT;
 CREATE INDEX IF NOT EXISTS tickets_day_status ON tickets (day, status);
 CREATE INDEX IF NOT EXISTS tickets_office_status ON tickets (office, status, day);
 `;

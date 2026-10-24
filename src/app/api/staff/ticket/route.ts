@@ -13,13 +13,15 @@ export async function POST(req: Request) {
     const off = getOffice(b.office);
     const details = validateDetails(off.id, b);
     const phone = normalizePhone(b.phone);
-    const { ticket, ahead } = await createTicket(off.id, off.services[0].code, Boolean(b.priority), phone, details);
+    const line = off.form?.service ?? off.services[0].code;
+    const { ticket, ahead } = await createTicket(off.id, line, Boolean(b.priority), phone, details);
     return NextResponse.json({
       ...toPublic(ticket),
       ahead,
       app_type: ticket.app_type,
       biz_type: ticket.biz_type,
       business_name: ticket.business_name,
+      account_no: ticket.account_no,
       created_at: ticket.created_at,
     });
   } catch (e: any) {

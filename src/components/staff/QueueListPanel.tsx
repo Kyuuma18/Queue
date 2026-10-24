@@ -129,7 +129,7 @@ export function QueueListPanel({ office, onExpired }: { office: OfficeId; onExpi
             <option value="priority">PRIORITY</option>
           </select>
         </label>
-        {off.form && (
+        {off.form?.appTypes && (
           <label className="fl">
             {t("Uri ng Aplikasyon", "Application Type")}
             <select className="field" value={app} onChange={(e) => setApp(e.target.value)}>
@@ -146,7 +146,13 @@ export function QueueListPanel({ office, onExpired }: { office: OfficeId; onExpi
             className="field"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder={off.form ? t("Numero o pangalan ng negosyo…", "Number or business name…") : t("Numero…", "Number…")}
+            placeholder={
+              off.form?.extra === "accountNumber"
+                ? t("Numero o account number…", "Number or account number…")
+                : off.form
+                  ? t("Numero o pangalan ng negosyo…", "Number or business name…")
+                  : t("Numero…", "Number…")
+            }
           />
         </label>
         <label className="check-row">
@@ -176,9 +182,11 @@ export function QueueListPanel({ office, onExpired }: { office: OfficeId; onExpi
               <tr>
                 <th>{t("Numero", "No.")}</th>
                 <th>{t("Uri", "Type")}</th>
-                {off.form && <th>{t("Aplikasyon", "Application")}</th>}
-                {off.form && <th>{t("Uri ng Negosyo", "Business type")}</th>}
-                {off.form && <th>{t("Pangalan ng Negosyo", "Business name")}</th>}
+                {off.form?.appTypes && <th>{t("Aplikasyon", "Application")}</th>}
+                {off.form?.bizTypes && <th>{t("Uri ng Negosyo", "Business type")}</th>}
+                {off.form && (
+                  <th>{off.form.extra === "accountNumber" ? t("Account Number", "Account number") : t("Pangalan ng Negosyo", "Business name")}</th>
+                )}
                 <th>{t("Katayuan", "Status")}</th>
                 <th>Counter</th>
                 <th>{t("Petsa", "Date")}</th>
@@ -206,9 +214,11 @@ export function QueueListPanel({ office, onExpired }: { office: OfficeId; onExpi
                 <tr key={r.id}>
                   <td className="n">{r.number}</td>
                   <td>{r.priority ? "★ PRIORITY" : "REGULAR"}</td>
-                  {off.form && <td>{r.app_type ?? "—"}</td>}
-                  {off.form && <td>{r.biz_type ?? "—"}</td>}
-                  {off.form && <td className="name">{r.business_name ?? "—"}</td>}
+                  {off.form?.appTypes && <td>{r.app_type ?? "—"}</td>}
+                  {off.form?.bizTypes && <td>{r.biz_type ?? "—"}</td>}
+                  {off.form && (
+                    <td className="name">{(off.form.extra === "accountNumber" ? r.account_no : r.business_name) ?? "—"}</td>
+                  )}
                   <td>
                     <span className={`st st-${r.status}`}>{stLabel(r.status)}</span>
                   </td>
