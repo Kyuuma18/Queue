@@ -110,7 +110,7 @@ export function CreateTicketPanel({ office, onExpired }: { office: OfficeId; onE
   // Print as an 80mm thermal-receipt slip: a temporary @page rule so the queue list still prints on A4.
   function printReceipt() {
     const s = document.createElement("style");
-    s.textContent = "@page { size: 80mm auto; margin: 3mm; }";
+    s.textContent = "@page { size: 58mm auto; margin: 2mm; }";
     document.head.appendChild(s);
     document.documentElement.classList.add("print-receipt");
     const done = () => {
