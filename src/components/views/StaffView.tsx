@@ -43,6 +43,20 @@ function Login({ onDone }: { onDone: () => void }) {
     if (pin.length < 8) setPin(pin + k);
   }
 
+  // Type the PIN on the keyboard too: digits, Backspace, Enter.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (/^[0-9]$/.test(e.key)) press(e.key);
+      else if (e.key === "Backspace") press("⌫");
+      else if (e.key === "Enter") press("OK");
+      else return;
+      e.preventDefault();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   return (
     <main className="wrap" style={{ maxWidth: 440 }}>
       <h1 style={{ textAlign: "center" }}>
