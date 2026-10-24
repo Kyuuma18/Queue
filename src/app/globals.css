@@ -77,6 +77,25 @@ a { color: var(--blue); }
 }
 .size-toggle button[aria-pressed="true"] { background: #fff; color: var(--navy); }
 
+/* Tagalog / English button, same look as the text-size buttons. */
+.topbar-tools { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; flex: none; }
+.lang-toggle { display: flex; gap: 4px; background: rgb(255 255 255 / 0.12); padding: 4px; border-radius: 14px; flex: none; }
+.lang-toggle button {
+  border: 0; background: transparent; color: #fff; border-radius: 10px;
+  min-width: 46px; height: 46px; padding: 0 14px; font-weight: 800; line-height: 1;
+}
+.lang-toggle button[aria-pressed="true"] { background: #fff; color: var(--navy); }
+/* Narrow phones: put the buttons on their own row under the title. */
+@media (max-width: 560px) {
+  .topbar-inner { flex-wrap: wrap; }
+  .brand { flex-basis: 100%; }
+  .topbar-tools { flex: 1 1 100%; justify-content: space-between; gap: 6px; }
+}
+@media (max-width: 400px) {
+  .lang-toggle button { padding: 0 10px; height: 44px; }
+  .size-toggle button { min-width: 40px; height: 44px; }
+}
+
 /* ── Type ───────────────────────────────────────────── */
 h1 { font-size: calc(1.75rem * var(--scale)); line-height: 1.15; margin: 8px 0 4px; }
 h2 { font-size: calc(1.3rem * var(--scale)); margin: 0 0 8px; }
@@ -223,6 +242,7 @@ input.field:focus { border-color: var(--navy); outline: none; }
 /* ── Display (TV / tablet) ──────────────────────────── */
 .display { background: var(--navy); color: #fff; min-height: 100dvh; padding: 14px; display: grid; gap: 14px; grid-template-rows: auto 1fr; }
 .display-top { display: flex; align-items: center; gap: 14px; }
+.display-tools { margin-left: auto; display: flex; align-items: center; gap: 18px; }
 .display-clock { margin-left: auto; text-align: right; line-height: 1.1; }
 .display-clock b { font-size: clamp(1.6rem, 4vw, 3rem); font-variant-numeric: tabular-nums; display: block; }
 .display-main { display: grid; gap: 14px; grid-template-columns: 1fr; min-height: 0; }

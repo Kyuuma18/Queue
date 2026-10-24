@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import { TopBar } from "@/components/Brand";
 import { MINUTES_PER_CLIENT, SERVICES, service } from "@/lib/config";
 import { manilaDay, saveTicket } from "@/lib/usePolling";
+import { useLang, useT } from "@/lib/i18n";
 
 interface Issued {
   id: number;
@@ -18,6 +19,8 @@ interface Issued {
 type Step = "service" | "priority" | "phone";
 
 export default function Kiosk() {
+  const t = useT();
+  const lang = useLang();
   const router = useRouter();
   const [step, setStep] = useState<Step>("service");
   const [svc, setSvc] = useState<string>("");
@@ -57,7 +60,7 @@ export default function Kiosk() {
         body: JSON.stringify({ service: svc, priority, phone: withPhone ? phone : "" }),
       });
       const j = await r.json();
-      if (!r.ok) throw new Error(j.error ?? "May problema. Subukan ulit.");
+      if (!r.ok) throw new Error(j.error ?? t("May problema. Subukan ulit.", "Something went wrong. Please try again."));
       const url = `/ticket?id=${j.id}&k=${j.token}`;
       if (shared) {
         setIssued(j);
@@ -82,37 +85,42 @@ export default function Kiosk() {
         <TopBar sizes={false} />
         <main className="wrap stack">
           <div className="ticket">
-            <div className="ticket-head">Ang inyong numero · Your number</div>
+            <div className="ticket-head">{t("Ang inyong numero", "Your number")}</div>
             <div className="ticket-num">{issued.number}</div>
             <div className="ticket-body stack">
               <div>
                 <span className="pill">
-                  {s?.icon} {s?.tl} · {s?.name}
+                  {s?.icon} {lang === "en" ? s?.name : s?.tl}
                 </span>{" "}
                 {issued.priority && <span className="pill pill-gold">★ Priority</span>}
               </div>
               <div className="bigstat">
                 <div>
                   <b>{issued.ahead}</b>
-                  <small>nauuna / ahead</small>
+                  <small>{t("nauuna", "ahead")}</small>
                 </div>
                 <div>
                   <b>~{Math.max(1, issued.ahead * MINUTES_PER_CLIENT)}</b>
-                  <small>minuto / mins</small>
+                  <small>{t("minuto", "minutes")}</small>
                 </div>
               </div>
             </div>
             <div className="ticket-cut" />
             <div className="ticket-body" style={{ paddingTop: 16 }}>
-              {qr && <img src={qr} alt="QR code para sa inyong numero" style={{ width: 220, height: 220 }} />}
+              {qr && (
+                <img
+                  src={qr}
+                  alt={t("QR code para sa inyong numero", "QR code for your number")}
+                  style={{ width: 220, height: 220 }}
+                />
+              )}
               <p style={{ margin: "6px 0 0", fontWeight: 700 }}>
-                I-scan para bantayan sa phone
-                <span className="tl">Scan to follow your number on your phone</span>
+                {t("I-scan para bantayan sa phone", "Scan to follow your number on your phone")}
               </p>
             </div>
           </div>
           <button className="btn btn-primary btn-xl btn-block" onClick={reset}>
-            Tapos na · Done
+            {t("Tapos na", "Done")}
           </button>
         </main>
       </>
@@ -131,16 +139,13 @@ export default function Kiosk() {
 
         {step !== "service" && (
           <button className="back" onClick={() => setStep(step === "phone" ? "priority" : "service")}>
-            ← Bumalik · Back
+            ← {t("Bumalik", "Back")}
           </button>
         )}
 
         {step === "service" && (
           <section className="stack">
-            <h1>
-              Ano ang inyong transaksyon?
-              <span className="tl">What do you need today?</span>
-            </h1>
+            <h1>{t("Ano ang inyong transaksyon?", "What do you need today?")}</h1>
             {SERVICES.map((s) => (
               <button
                 key={s.code}
@@ -154,12 +159,9 @@ export default function Kiosk() {
                   {s.icon}
                 </span>
                 <span>
-                  <span className="choice-title">{s.tl}</span>
-                  <span className="choice-sub" style={{ display: "block", fontWeight: 700, color: "var(--ink-2)" }}>
-                    {s.name}
-                  </span>
+                  <span className="choice-title">{lang === "en" ? s.name : s.tl}</span>
                   <span className="choice-sub" style={{ display: "block" }}>
-                    {s.detailTl}
+                    {lang === "en" ? s.detail : s.detailTl}
                   </span>
                 </span>
                 <span className="choice-arrow" aria-hidden>
@@ -173,10 +175,12 @@ export default function Kiosk() {
         {step === "priority" && (
           <section className="stack">
             <h1>
-              Kayo ba ay Senior, PWD, buntis, o may kasamang sanggol?
-              <span className="tl">Are you a senior citizen, PWD, pregnant, or with an infant?</span>
+              {t(
+                "Kayo ba ay Senior, PWD, buntis, o may kasamang sanggol?",
+                "Are you a senior citizen, PWD, pregnant, or with an infant?",
+              )}
             </h1>
-            <p className="lead">Ihanda ang ID para ipakita sa counter. · Please show your ID at the counter.</p>
+            <p className="lead">{t("Ihanda ang ID para ipakita sa counter.", "Please show your ID at the counter.")}</p>
             <div className="grid-2">
               <button
                 className="choice"
@@ -190,9 +194,9 @@ export default function Kiosk() {
                   ★
                 </span>
                 <span>
-                  <span className="choice-title">Oo, Priority</span>
+                  <span className="choice-title">{t("Oo, Priority", "Yes, Priority")}</span>
                   <span className="choice-sub" style={{ display: "block" }}>
-                    Yes — priority lane
+                    {t("Priority lane", "Priority lane")}
                   </span>
                 </span>
               </button>
@@ -207,9 +211,9 @@ export default function Kiosk() {
                   👤
                 </span>
                 <span>
-                  <span className="choice-title">Hindi</span>
+                  <span className="choice-title">{t("Hindi", "No")}</span>
                   <span className="choice-sub" style={{ display: "block" }}>
-                    No — regular lane
+                    {t("Regular na pila", "Regular lane")}
                   </span>
                 </span>
               </button>
@@ -220,12 +224,11 @@ export default function Kiosk() {
         {step === "phone" && (
           <section className="stack">
             <h1>
-              Gusto ba ninyong ma-text kapag malapit na?
-              <span className="tl">Want a text message when your turn is near?</span>
+              {t("Gusto ba ninyong ma-text kapag malapit na?", "Want a text message when your turn is near?")}
             </h1>
-            <p className="lead">Hindi kailangan. Pwedeng laktawan. · Optional — you may skip this.</p>
+            <p className="lead">{t("Hindi kailangan. Pwedeng laktawan.", "Optional — you may skip this.")}</p>
             <label className="stack" style={{ gap: 6 }}>
-              <span style={{ fontWeight: 800 }}>Mobile number</span>
+              <span style={{ fontWeight: 800 }}>{t("Mobile number", "Mobile number")}</span>
               <input
                 className="field"
                 inputMode="numeric"
@@ -242,13 +245,16 @@ export default function Kiosk() {
               </div>
             )}
             <button className="btn btn-gold btn-xl btn-block" disabled={busy || phone.replace(/\D/g, "").length < 10} onClick={() => submit(true)}>
-              {busy ? "Sandali lang…" : "I-text ako · Text me"}
+              {busy ? t("Sandali lang…", "Please wait…") : t("I-text ako", "Text me")}
             </button>
             <button className="btn btn-primary btn-xl btn-block" disabled={busy} onClick={() => submit(false)}>
-              {busy ? "Sandali lang…" : "Kunin ang numero · Get my number"}
+              {busy ? t("Sandali lang…", "Please wait…") : t("Kunin ang numero", "Get my number")}
             </button>
             <p style={{ color: "var(--muted)", fontSize: "0.85em", margin: 0 }}>
-              Gagamitin lang ang numero para sa abiso ng pila ngayong araw. · Used only for today's queue alerts.
+              {t(
+                "Gagamitin lang ang numero para sa abiso ng pila ngayong araw.",
+                "Used only for today's queue alerts.",
+              )}
             </p>
           </section>
         )}

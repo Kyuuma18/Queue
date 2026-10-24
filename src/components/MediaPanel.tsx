@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { SLIDES, VIDEOS } from "@/lib/config";
+import { useLang } from "@/lib/i18n";
 
 function youTubeId(url: string) {
   const m = url.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/);
@@ -46,12 +47,14 @@ function Mp4Loop({ urls }: { urls: string[] }) {
 }
 
 function Slides() {
+  const lang = useLang();
+  const slides = SLIDES[lang];
   const [i, setI] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setI((x) => (x + 1) % SLIDES.length), 12000);
+    const id = setInterval(() => setI((x) => (x + 1) % slides.length), 12000);
     return () => clearInterval(id);
-  }, []);
-  const s = SLIDES[i];
+  }, [slides.length]);
+  const s = slides[i % slides.length];
   return (
     <div className="slide" key={i} style={{ animation: "fadein .5s ease" }}>
       <h3>{s.title}</h3>
@@ -64,7 +67,7 @@ function Slides() {
         </ul>
       )}
       <div style={{ display: "flex", gap: 6, marginTop: 14 }} aria-hidden>
-        {SLIDES.map((_, j) => (
+        {slides.map((_, j) => (
           <span key={j} style={{ width: 28, height: 6, borderRadius: 6, background: j === i ? "var(--navy)" : "var(--line)" }} />
         ))}
       </div>

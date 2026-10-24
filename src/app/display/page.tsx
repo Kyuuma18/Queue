@@ -1,13 +1,15 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { Seal } from "@/components/Brand";
+import { LangToggle, Seal } from "@/components/Brand";
+import { useLang, useT } from "@/lib/i18n";
 import { MediaPanel } from "@/components/MediaPanel";
 import { COUNTERS, MUNICIPALITY, OFFICE_SHORT, counterLabel } from "@/lib/config";
 import { useQueueState } from "@/lib/usePolling";
 import { announce } from "@/lib/speak";
 
 function Clock() {
+  const loc = useLang() === "en" ? "en-PH" : "fil-PH";
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
     setNow(new Date());
@@ -18,13 +20,14 @@ function Clock() {
   const tz = { timeZone: "Asia/Manila" } as const;
   return (
     <div className="display-clock">
-      <b>{now.toLocaleTimeString("en-PH", { ...tz, hour: "2-digit", minute: "2-digit", second: "2-digit" })}</b>
-      <span>{now.toLocaleDateString("en-PH", { ...tz, weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
+      <b>{now.toLocaleTimeString(loc, { ...tz, hour: "2-digit", minute: "2-digit", second: "2-digit" })}</b>
+      <span>{now.toLocaleDateString(loc, { ...tz, weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
     </div>
   );
 }
 
 export default function Display() {
+  const t_ = useT(); // translate: t_("Tagalog", "English")
   const { state, error } = useQueueState(3000);
   const [sound, setSound] = useState(false);
   const [callout, setCallout] = useState<{ number: string; counter: string } | null>(null);
@@ -93,14 +96,15 @@ export default function Display() {
           <div style={{ fontWeight: 800, fontSize: "clamp(1.2rem, 3vw, 2rem)" }}>{OFFICE_SHORT} Queue</div>
           <div style={{ opacity: 0.85 }}>{MUNICIPALITY}</div>
         </div>
-        <Clock />
+        <div className="display-tools">
+          <LangToggle />
+          <Clock />
+        </div>
       </header>
 
       <div className="display-main">
-        <section className="panel stack" aria-label="Now serving">
-          <h2 style={{ margin: 0 }}>
-            Tinatawag Ngayon <span className="tl">Now Serving</span>
-          </h2>
+        <section className="panel stack" aria-label={t_("Tinatawag ngayon", "Now serving")}>
+          <h2 style={{ margin: 0 }}>{t_("Tinatawag Ngayon", "Now Serving")}</h2>
           <div className="counter-grid">
             {COUNTERS.map((c) => {
               const t = byCounter.get(c.id);
@@ -115,9 +119,7 @@ export default function Display() {
             })}
           </div>
 
-          <h2 style={{ margin: "8px 0 0" }}>
-            Susunod <span className="tl">Next in line</span>
-          </h2>
+          <h2 style={{ margin: "8px 0 0" }}>{t_("Susunod", "Next in line")}</h2>
           <div className="next-list">
             {next.length === 0 && <span style={{ background: "transparent", color: "var(--muted)" }}>—</span>}
             {next.map((t) => (
@@ -133,9 +135,10 @@ export default function Display() {
           <section className="panel">
             <MediaPanel />
           </section>
-          <section className="panel" aria-label="Unclaimed">
+          <section className="panel" aria-label={t_("Hindi sumipot", "Unclaimed")}>
             <h2 style={{ margin: "0 0 8px" }}>
-              Hindi Sumipot <span className="tl">Called — please see the counter</span>
+              {t_("Hindi Sumipot", "Not Yet Claimed")}
+              <span className="tl">{t_("Natawag na — pumunta sa counter", "Called — please see the counter")}</span>
             </h2>
             <div className="next-list">
               {(state?.skipped.length ?? 0) === 0 && <span style={{ background: "transparent", color: "var(--muted)" }}>—</span>}
@@ -149,8 +152,12 @@ export default function Display() {
           <section className="panel" style={{ display: "flex", gap: 14, alignItems: "center" }}>
             {qr && <img src={qr} alt="" style={{ width: 120, height: 120, flex: "none" }} />}
             <div>
-              <b style={{ fontSize: "1.2em", color: "var(--navy)" }}>I-scan para kumuha ng numero</b>
-              <span className="tl">Scan with your phone to get a number and follow the line</span>
+              <b style={{ fontSize: "1.2em", color: "var(--navy)" }}>
+                {t_("I-scan para kumuha ng numero", "Scan to get a number")}
+              </b>
+              <span className="tl">
+                {t_("Gamitin ang phone at bantayan ang pila", "Use your phone and follow the line")}
+              </span>
             </div>
           </section>
         </aside>
@@ -159,7 +166,7 @@ export default function Display() {
       {callout && (
         <div className="callout" role="alert" aria-live="assertive">
           <div>
-            <div style={{ fontSize: "clamp(1.4rem, 4vw, 2.6rem)", fontWeight: 800 }}>Numero · Number</div>
+            <div style={{ fontSize: "clamp(1.4rem, 4vw, 2.6rem)", fontWeight: 800 }}>{t_("Numero", "Number")}</div>
             <div className="num">{callout.number}</div>
             <div className="to">→ {callout.counter}</div>
           </div>
@@ -167,7 +174,7 @@ export default function Display() {
       )}
 
       <button className={"btn sound-btn " + (sound ? "btn-ghost" : "btn-gold")} onClick={toggleSound}>
-        {sound ? "🔊 Sound on" : "🔇 Tap to turn on sound"}
+        {sound ? t_("🔊 May tunog", "🔊 Sound on") : t_("🔇 I-tap para buksan ang tunog", "🔇 Tap to turn on sound")}
       </button>
     </div>
   );

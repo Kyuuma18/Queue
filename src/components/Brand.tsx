@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { OFFICE_SHORT } from "@/lib/config";
+import { setLang, useLang, useT } from "@/lib/i18n";
 
 export function Seal({ size = 46 }: { size?: number }) {
   const [ok, setOk] = useState(true);
@@ -13,12 +14,13 @@ export function Seal({ size = 46 }: { size?: number }) {
 }
 
 const SIZES = [
-  { key: "", label: "A", aria: "Normal na laki ng letra / Normal text" },
-  { key: "lg", label: "A+", aria: "Mas malaking letra / Larger text" },
-  { key: "xl", label: "A++", aria: "Pinakamalaking letra / Largest text" },
+  { key: "", label: "A", tl: "Normal na laki ng letra", en: "Normal text" },
+  { key: "lg", label: "A+", tl: "Mas malaking letra", en: "Larger text" },
+  { key: "xl", label: "A++", tl: "Pinakamalaking letra", en: "Largest text" },
 ];
 
 export function TextSize() {
+  const t = useT();
   const [size, setSize] = useState("");
   useEffect(() => setSize(document.documentElement.dataset.size ?? ""), []);
   function pick(k: string) {
@@ -30,9 +32,9 @@ export function TextSize() {
     } catch {}
   }
   return (
-    <div className="size-toggle" role="group" aria-label="Laki ng letra / Text size">
+    <div className="size-toggle" role="group" aria-label={t("Laki ng letra", "Text size")}>
       {SIZES.map((s) => (
-        <button key={s.label} aria-label={s.aria} aria-pressed={size === s.key} onClick={() => pick(s.key)}>
+        <button key={s.label} aria-label={t(s.tl, s.en)} aria-pressed={size === s.key} onClick={() => pick(s.key)}>
           {s.label}
         </button>
       ))}
@@ -40,18 +42,46 @@ export function TextSize() {
   );
 }
 
-export function TopBar({ subtitle = OFFICE_SHORT, sizes = true }: { subtitle?: string; sizes?: boolean }) {
+/** Tagalog / English button. The choice is remembered on this device. */
+export function LangToggle() {
+  const lang = useLang();
+  const t = useT();
+  return (
+    <div className="lang-toggle" role="group" aria-label={t("Wika", "Language")}>
+      <button lang="tl" aria-pressed={lang === "tl"} onClick={() => setLang("tl")}>
+        Tagalog
+      </button>
+      <button lang="en" aria-pressed={lang === "en"} onClick={() => setLang("en")}>
+        English
+      </button>
+    </div>
+  );
+}
+
+export function TopBar({
+  subtitle = OFFICE_SHORT,
+  sizes = true,
+  lang = true,
+}: {
+  subtitle?: string;
+  sizes?: boolean;
+  lang?: boolean;
+}) {
+  const t = useT();
   return (
     <header className="topbar">
       <div className="topbar-inner">
-        <Link href="/" className="brand" aria-label="Home">
+        <Link href="/" className="brand" aria-label={t("Pumunta sa Home", "Go to Home")}>
           <Seal />
           <span className="brand-text">
             <b>Cainta Queue</b>
             <small>{subtitle}</small>
           </span>
         </Link>
-        {sizes && <TextSize />}
+        <div className="topbar-tools">
+          {lang && <LangToggle />}
+          {sizes && <TextSize />}
+        </div>
       </div>
     </header>
   );

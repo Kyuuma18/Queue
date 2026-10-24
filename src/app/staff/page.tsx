@@ -122,7 +122,7 @@ export default function Staff() {
 
   return (
     <>
-      <TopBar subtitle="Staff · Counter" />
+      <TopBar subtitle="Staff · Counter" lang={false} />
       {authed === null ? (
         <main className="wrap">
           <p className="lead">Loading…</p>

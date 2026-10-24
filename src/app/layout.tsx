@@ -14,8 +14,8 @@ export const viewport: Viewport = {
   themeColor: "#0b2a6f",
 };
 
-// Restore the person's chosen text size before the page paints.
-const sizeScript = `try{var s=localStorage.getItem("cq_size");if(s)document.documentElement.dataset.size=s}catch(e){}`;
+// Restore the person's chosen text size and language before the page paints.
+const sizeScript = `try{var s=localStorage.getItem("cq_size");if(s)document.documentElement.dataset.size=s;if(localStorage.getItem("cq_lang")==="en")document.documentElement.lang="en"}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

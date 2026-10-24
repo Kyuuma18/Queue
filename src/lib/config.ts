@@ -68,31 +68,45 @@ export const MINUTES_PER_CLIENT = 6;
  */
 export const VIDEOS: string[] = [];
 
-export const SLIDES: { title: string; body?: string; list?: string[] }[] = [
-  {
-    title: "Mabuhay! Welcome to Cainta",
-    body: "Salamat sa pag-renew ng inyong Business Permit. Thank you for renewing with us.",
-  },
-  {
-    title: "Requirements for Renewal",
-    list: [
-      "Financial Statements or Income Tax Return",
-      "Monthly, Quarterly or Percentage Tax Return",
-      "Latest Business Permit",
-      "Alphalist, as submitted to SSS (if applicable)",
-      "Lease Contract or Tax Dec. with latest RPT O.R.",
-      "Public Liability Insurance",
-    ],
-  },
-  {
-    title: "Priority Lane",
-    body: "Senior citizens, PWD, buntis, at may kasamang sanggol ay may priority. Senior citizens, PWD, pregnant clients and those with an infant are served first.",
-  },
-  {
-    title: "Hintayin ang inyong numero",
-    body: "Your number and counter will appear on the screen and be announced. Keep your ticket or phone with you.",
-  },
+type Slide = { title: string; body?: string; list?: string[] };
+
+// The requirements are document names, so the list is the same in both languages.
+const REQUIREMENTS = [
+  "Financial Statements or Income Tax Return",
+  "Monthly, Quarterly or Percentage Tax Return",
+  "Latest Business Permit",
+  "Alphalist, as submitted to SSS (if applicable)",
+  "Lease Contract or Tax Dec. with latest RPT O.R.",
+  "Public Liability Insurance",
 ];
+
+/** Rotating messages on the TV, one set per language (shown in the language picked with the button). */
+export const SLIDES: Record<"tl" | "en", Slide[]> = {
+  tl: [
+    { title: "Mabuhay po sa Cainta!", body: "Salamat sa pag-renew ng inyong Business Permit." },
+    { title: "Mga Kailangan sa Pag-renew", list: REQUIREMENTS },
+    {
+      title: "Priority Lane",
+      body: "Ang mga senior citizen, PWD, buntis, at may kasamang sanggol ay may priority.",
+    },
+    {
+      title: "Hintayin ang inyong numero",
+      body: "Lalabas sa screen at ia-anunsyo ang inyong numero at counter. Dalhin ang inyong ticket o phone.",
+    },
+  ],
+  en: [
+    { title: "Welcome to Cainta!", body: "Thank you for renewing your Business Permit with us." },
+    { title: "Requirements for Renewal", list: REQUIREMENTS },
+    {
+      title: "Priority Lane",
+      body: "Senior citizens, PWD, pregnant clients and those with an infant are served first.",
+    },
+    {
+      title: "Wait for your number",
+      body: "Your number and counter will appear on the screen and be announced. Keep your ticket or phone with you.",
+    },
+  ],
+};
 
 export function service(code: string) {
   return SERVICES.find((s) => s.code === code);
