@@ -333,11 +333,11 @@ table.data td.empty { text-align: center; color: var(--muted); font-weight: 800;
   .print-area { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; }
   .no-print { display: none !important; }
   .modal-back { background: none; }
-  /* Receipt slip: only the receipt, narrow, black on white. */
-  .print-receipt .print-area { position: static; padding: 0; border: 0; background: #fff; }
-  .print-receipt .print-area * { visibility: hidden; }
-  .print-receipt .receipt, .print-receipt .receipt * { visibility: visible; }
-  .print-receipt .receipt { position: absolute; left: 0; top: 0; width: 100%; max-width: none; border: 0; box-shadow: none; padding: 0; }
+  /* Receipt slip: remove everything else from the layout (not just hide it) so it prints on ONE small page. */
+  .print-receipt body *:not(:has(.receipt)):not(.receipt):not(.receipt *) { display: none !important; }
+  .print-receipt, .print-receipt body { height: auto !important; min-height: 0 !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  .print-receipt body *:has(.receipt) { position: static !important; display: block !important; padding: 0 !important; margin: 0 !important; border: 0 !important; box-shadow: none !important; background: #fff !important; width: auto !important; max-width: none !important; min-height: 0 !important; height: auto !important; inset: auto !important; transform: none !important; }
+  .print-receipt .receipt { position: static; display: block; width: 100%; max-width: none; margin: 0; border: 0; box-shadow: none; padding: 0; break-inside: avoid; page-break-inside: avoid; }
   .print-receipt .receipt-seal { filter: grayscale(1); }
 }
 
