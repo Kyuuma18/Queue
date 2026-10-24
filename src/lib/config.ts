@@ -35,6 +35,14 @@ export interface Office {
   id: OfficeId;
   name: string;
   short: string;
+  /**
+   * "per-service": each transaction has its own numbers with its letter (A001, B001 …).
+   * "running": one running number for the whole office (001, 002 …), shown as-is on the TV.
+   * Either way numbers start again at 1 every day.
+   */
+  numbering: "per-service" | "running";
+  /** When set, staff create tickets with a form: these are the choices for the two drop-downs. */
+  form?: { appTypes: string[]; bizTypes: string[] };
   /** Page addresses for this office's screens. */
   paths: { home: string; kiosk: string; display: string; staff: string };
   services: Service[];
@@ -67,6 +75,7 @@ export const OFFICES: Record<OfficeId, Office> = {
     id: "bplo",
     name: "Cainta Business Permit & Licensing Office",
     short: "BPLO & Treasury",
+    numbering: "per-service",
     paths: { home: "/", kiosk: "/kiosk", display: "/display", staff: "/staff" },
     services: [
       {
@@ -125,31 +134,28 @@ export const OFFICES: Record<OfficeId, Office> = {
     id: "gso",
     name: "Cainta General Services Office",
     short: "GSO",
+    // GSO has one line with one running folder number (001, 002 …). Staff create the tickets with a form.
+    numbering: "running",
+    form: {
+      appTypes: ["NEW", "RENEWAL", "RELEASE"],
+      bizTypes: ["SINGLE", "PARTNERSHIP", "CORPORATION", "COOPERATIVE"],
+    },
     paths: { home: "/gso", kiosk: "/gso/kiosk", display: "/gso/display", staff: "/gso/staff" },
     services: [
       {
-        code: "R",
-        name: "Request",
-        tl: "Paghiling (Request)",
-        detail: "Submit a request or application to GSO",
-        detailTl: "Magsumite ng request o aplikasyon sa GSO",
-        icon: "📋",
+        code: "G",
+        name: "GSO queue",
+        tl: "Pila sa GSO",
+        detail: "Get a number for the General Services Office",
+        detailTl: "Kumuha ng numero para sa General Services Office",
+        icon: "🗂️",
         color: "#1d4ed8",
       },
-      {
-        code: "L",
-        name: "Release",
-        tl: "Pagkuha (Release)",
-        detail: "Claim your document or item",
-        detailTl: "Kunin ang inyong dokumento o gamit",
-        icon: "📦",
-        color: "#b45309",
-      },
     ],
-    // Both windows call both lines, so whichever window is free serves the next number.
+    // Both windows call the one line, so whichever window is free serves the next number.
     counters: [
-      { id: 1, label: "Counter 1", services: ["R", "L"] },
-      { id: 2, label: "Counter 2", services: ["R", "L"] },
+      { id: 1, label: "Counter 1", services: ["G"] },
+      { id: 2, label: "Counter 2", services: ["G"] },
     ],
     videos: [],
     slides: {

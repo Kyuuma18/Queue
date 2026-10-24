@@ -274,3 +274,60 @@ input.field:focus { border-color: var(--navy); outline: none; }
 @keyframes fadein { from { opacity: 0; } }
 
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* ── Staff: create-ticket form and queue list ───────── */
+.staff-nav { padding-bottom: 0; }
+.staff-nav .tabs { margin: 0; }
+.staff-nav .tabs button, .staff-nav .tab-link { flex: 1 1 auto; }
+.tab-link {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 16px; border-radius: 14px;
+  border: 2px solid var(--line); background: #fff; font-weight: 800; color: var(--navy); text-decoration: none;
+}
+select.field {
+  width: 100%; min-height: 60px; border-radius: 16px; border: 3px solid var(--line); padding: 10px 14px;
+  background: #fff; color: var(--ink); font: inherit; font-weight: 700;
+}
+select.field:focus { border-color: var(--navy); outline: none; }
+input.field[type="date"] { min-height: 60px; letter-spacing: 0; font-size: 1em; }
+label.fl { display: grid; gap: 6px; font-weight: 800; color: var(--muted); }
+label.fl .field { font-weight: 700; color: var(--ink); letter-spacing: 0; font-size: 1em; min-height: 60px; }
+
+.modal-back {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px;
+  background: rgb(11 20 40 / 0.55); overflow: auto;
+}
+.modal { width: min(560px, 100%); background: #fff; border-radius: 22px; padding: 22px; box-shadow: 0 20px 60px rgb(0 0 0 / 0.35); }
+.kind { color: var(--navy-2); text-decoration: underline; }
+.kind-p { color: var(--gold-ink); }
+.big-queue-number { font-size: clamp(4.5rem, 24vw, 8rem); font-weight: 800; line-height: 1; color: var(--navy); font-variant-numeric: tabular-nums; }
+
+.filters { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); align-items: end; }
+.filters .search { grid-column: span 2; }
+.check-row { display: flex; gap: 10px; align-items: center; font-weight: 700; grid-column: 1 / -1; }
+.check-row input { width: 22px; height: 22px; }
+
+/* Let wide children (the table) scroll inside their own box instead of stretching the page. */
+.stack > * { min-width: 0; }
+.print-area { min-width: 0; max-width: 100%; }
+.table-wrap { overflow-x: auto; max-width: 100%; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+table.data { width: 100%; border-collapse: collapse; min-width: 720px; font-size: 0.95em; }
+table.data th, table.data td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.data th { background: var(--cream); color: var(--muted); font-weight: 800; position: sticky; top: 0; }
+table.data tbody tr:nth-child(even) { background: #fcfdff; }
+table.data td.n { font-weight: 800; font-size: 1.1em; font-variant-numeric: tabular-nums; color: var(--navy); }
+table.data td.name { white-space: normal; min-width: 180px; }
+table.data td.empty { text-align: center; color: var(--muted); font-weight: 800; padding: 22px; }
+.st { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 800; font-size: 0.85em; background: var(--sky); color: var(--navy); }
+.st-done { background: var(--green-bg); color: var(--green); }
+.st-skipped { background: var(--red-bg); color: var(--red); }
+.st-cancelled { background: #eceff3; color: var(--muted); }
+.st-serving { background: #fff3c4; color: var(--gold-ink); }
+
+/* Print only the part marked .print-area (a ticket slip or the queue list). */
+@media print {
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; }
+  .no-print { display: none !important; }
+  .modal-back { background: none; }
+}

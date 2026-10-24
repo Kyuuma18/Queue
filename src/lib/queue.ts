@@ -27,6 +27,10 @@ export interface Ticket {
   done_at: string | null;
   recalls: number;
   token: string | null;
+  /** Details staff type in when they create a ticket (GSO). Never sent to the public screens. */
+  app_type: string | null;
+  biz_type: string | null;
+  business_name: string | null;
 }
 
 /** What the public may see about a ticket (no phone number, no token). */
@@ -36,7 +40,7 @@ export type PublicTicket = Pick<
 >;
 
 const COLS = `id, office, number, service, priority, phone, status, counter, created_at,
-  to_char(${ISSUED_DAY}, 'YYYY-MM-DD') AS cday, called_at, done_at, recalls, token`;
+  to_char(${ISSUED_DAY}, 'YYYY-MM-DD') AS cday, called_at, done_at, recalls, token, app_type, biz_type, business_name`;
 
 export function toPublic(t: Ticket): PublicTicket {
   return {
@@ -63,24 +67,76 @@ export function normalizePhone(raw: unknown): string | null {
   return d;
 }
 
-export async function createTicket(officeId: unknown, serviceCode: string, priority: boolean, phone: string | null) {
+/** Details staff type in when they create a ticket. */
+export interface TicketDetails {
+  appType?: string;
+  bizType?: string;
+  businessName?: string;
+}
+
+/** Check the create-ticket form for an office that uses one (GSO) and tidy the text. */
+export function validateDetails(officeId: unknown, d: TicketDetails): Required<TicketDetails> {
+  const off = getOffice(officeId);
+  const appType = String(d.appType ?? "").trim().toUpperCase();
+  const bizType = String(d.bizType ?? "").trim().toUpperCase();
+  const businessName = String(d.businessName ?? "").trim().replace(/\s+/g, " ");
+  if (off.form) {
+    if (!off.form.appTypes.includes(appType)) throw new Error("Please choose the application type.");
+    if (!off.form.bizTypes.includes(bizType)) throw new Error("Please choose the business type.");
+    if (!businessName) throw new Error("Please enter the business name.");
+  }
+  if (businessName.length > 120) throw new Error("The business name is too long.");
+  return { appType, bizType, businessName };
+}
+
+/** How many numbers this office has issued today, counting the line the number belongs to. */
+async function issuedToday(office: string, serviceCode: string, running: boolean) {
+  const db = await getDb();
+  const [{ n }] = await db.query<{ n: number }>(
+    running
+      ? `SELECT COUNT(*)::int AS n FROM tickets WHERE office = $1 AND ${ISSUED_DAY} = ${TODAY}`
+      : `SELECT COUNT(*)::int AS n FROM tickets WHERE office = $1 AND service = $2 AND ${ISSUED_DAY} = ${TODAY}`,
+    running ? [office] : [office, serviceCode],
+  );
+  return n;
+}
+
+function formatNumber(off: ReturnType<typeof getOffice>, serviceCode: string, priority: boolean, seq: number) {
+  const letter = off.numbering === "running" ? "" : serviceCode;
+  return (priority ? "P" : "") + letter + String(seq).padStart(3, "0");
+}
+
+/** The number the next ticket will get (shown as the "Folder Number" on the create-ticket form). */
+export async function nextNumber(officeId: unknown, priority: boolean, serviceCode?: string) {
+  const off = getOffice(officeId);
+  const code = serviceCode ?? off.services[0].code;
+  const n = await issuedToday(off.id, code, off.numbering === "running");
+  return formatNumber(off, code, priority, n + 1);
+}
+
+export async function createTicket(
+  officeId: unknown,
+  serviceCode: string,
+  priority: boolean,
+  phone: string | null,
+  details: TicketDetails = {},
+) {
   const off = getOffice(officeId);
   if (!off.services.some((s) => s.code === serviceCode)) throw new Error("Unknown service");
   const db = await getDb();
   const token = randomBytes(9).toString("base64url");
+  const text = (v?: string) => (v ? String(v).trim().slice(0, 120) || null : null);
   // Retry in the rare case two people press the button at the same instant.
   for (let attempt = 0; attempt < 5; attempt++) {
     // Numbers start again at 1 every day: only tickets issued today are counted.
-    const [{ n }] = await db.query<{ n: number }>(
-      `SELECT COUNT(*)::int AS n FROM tickets WHERE office = $1 AND service = $2 AND ${ISSUED_DAY} = ${TODAY}`,
-      [off.id, serviceCode],
-    );
-    const number = (priority ? "P" : "") + serviceCode + String(n + 1 + attempt).padStart(3, "0");
+    const n = await issuedToday(off.id, serviceCode, off.numbering === "running");
+    const number = formatNumber(off, serviceCode, priority, n + 1 + attempt);
     const dup = await db.query(`SELECT 1 FROM tickets WHERE office = $1 AND number = $2 AND ${ISSUED_DAY} = ${TODAY}`, [off.id, number]);
     if (dup.length) continue;
     const [t] = await db.query<Ticket>(
-      `INSERT INTO tickets (office, number, service, priority, phone, token) VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${COLS}`,
-      [off.id, number, serviceCode, priority, phone, token],
+      `INSERT INTO tickets (office, number, service, priority, phone, token, app_type, biz_type, business_name)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING ${COLS}`,
+      [off.id, number, serviceCode, priority, phone, token, text(details.appType), text(details.bizType), text(details.businessName)],
     );
     const ahead = await countAhead(t);
     if (phone) {
@@ -118,11 +174,16 @@ export async function cancelTicket(id: number, token: string) {
   await db.query(`UPDATE tickets SET status = 'cancelled', done_at = NOW() WHERE id = $1 AND token = $2 AND status = 'waiting'`, [id, token]);
 }
 
+/** A number left "serving" from an earlier day was never closed: keep it on the unclaimed list so it is not lost. */
+async function closeStale() {
+  const db = await getDb();
+  await db.query(`UPDATE tickets SET status = 'skipped' WHERE status = 'serving' AND day < ${TODAY}`);
+}
+
 export async function getState(officeId: unknown) {
   const off = getOffice(officeId);
   const db = await getDb();
-  // A number left "serving" from an earlier day was never closed: keep it on the unclaimed list so it is not lost.
-  await db.query(`UPDATE tickets SET status = 'skipped' WHERE status = 'serving' AND day < ${TODAY}`);
+  await closeStale();
   // Today's line, plus every unclaimed number from any earlier day (they stay until claimed).
   const rows = await db.query<Ticket>(
     `SELECT ${COLS} FROM tickets
@@ -244,6 +305,73 @@ export async function requeue(officeId: unknown, id: number) {
     `UPDATE tickets SET status = 'waiting', counter = NULL, day = ${TODAY} WHERE id = $1 AND office = $2 AND status = 'skipped'`,
     [id, off.id],
   );
+}
+
+/* ───────────────────────── Queue list (staff only) ───────────────────────── */
+
+export interface ListFilter {
+  /** Issue day range, "YYYY-MM-DD". Missing means today. */
+  from?: string;
+  to?: string;
+  /** waiting | serving | done | unclaimed | cancelled — empty means all. */
+  status?: string;
+  /** regular | priority — empty means both. */
+  type?: string;
+  /** Application type, e.g. RENEWAL — empty means all. */
+  app?: string;
+  /** Search the queue number and the business name. */
+  q?: string;
+  /** Also list unclaimed numbers from earlier days, whatever the date range. */
+  carried?: boolean;
+}
+
+export type ListRow = Pick<
+  Ticket,
+  "id" | "number" | "service" | "priority" | "status" | "counter" | "cday" | "created_at" | "called_at" | "done_at" | "app_type" | "biz_type" | "business_name"
+>;
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const STATUSES: Record<string, string> = { waiting: "waiting", serving: "serving", done: "done", unclaimed: "skipped", cancelled: "cancelled" };
+
+/** Every ticket matching the filter (default: issued today), oldest first. Includes business names, so staff only. */
+export async function listTickets(officeId: unknown, f: ListFilter = {}): Promise<ListRow[]> {
+  const off = getOffice(officeId);
+  const db = await getDb();
+  const from = f.from && DATE.test(f.from) ? f.from : null;
+  const to = f.to && DATE.test(f.to) ? f.to : from;
+  const status = f.status ? STATUSES[f.status] ?? null : null;
+  if (f.status && !status) throw new Error("Unknown status");
+  const type = f.type === "priority" || f.type === "regular" ? f.type : "";
+  const app = f.app ? f.app.trim().toUpperCase() : null;
+  const q = f.q?.trim() ? `%${f.q.trim().replace(/[\\%_]/g, "\\$&")}%` : null;
+  await closeStale();
+  const rows = await db.query<Ticket>(
+    `SELECT ${COLS} FROM tickets
+      WHERE office = $1
+        AND ((${ISSUED_DAY} BETWEEN COALESCE($2::date, ${TODAY}) AND COALESCE($3::date, ${TODAY})) OR ($4::boolean AND status = 'skipped'))
+        AND ($5::text IS NULL OR status = $5)
+        AND ($6::text = '' OR ($6 = 'priority' AND priority) OR ($6 = 'regular' AND NOT priority))
+        AND ($7::text IS NULL OR app_type = $7)
+        AND ($8::text IS NULL OR number ILIKE $8 OR business_name ILIKE $8)
+      ORDER BY created_at ASC, id ASC
+      LIMIT 5000`,
+    [off.id, from, to, !!f.carried, status, type, app, q],
+  );
+  return rows.map((t) => ({
+    id: t.id,
+    number: t.number,
+    service: t.service,
+    priority: t.priority,
+    status: t.status,
+    counter: t.counter,
+    cday: t.cday,
+    created_at: t.created_at,
+    called_at: t.called_at,
+    done_at: t.done_at,
+    app_type: t.app_type,
+    biz_type: t.biz_type,
+    business_name: t.business_name,
+  }));
 }
 
 /** The document or release was collected: take it off the unclaimed list. */

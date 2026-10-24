@@ -49,6 +49,8 @@ npm run dev          # http://localhost:3000 — uses a local database in ./.pgl
 The General Services Office has its own queue next to the BPLO one, with the same screens under `/gso`:
 `/gso` (home), `/gso/kiosk`, `/gso/display` (TV), `/gso/staff`. Staff use the same PIN.
 
-- **Numbers restart at 1 every day**, separately for each office and each transaction (BPLO: A, B, C. GSO: R = Request, L = Release).
+- **GSO tickets are created by staff** in `/gso/staff` → **Create Ticket**: choose REGULAR or PRIORITY, then Application Type (NEW / RENEWAL / RELEASE), Business Type (SINGLE / PARTNERSHIP / CORPORATION / COOPERATIVE) and Business Name. The **Folder Number is automatic** (001, 002 … and P003 for priority) and is the number the TV screen shows. Clients can also take a number themselves at `/gso/kiosk`; it continues the same count.
+- **Queue List** (`Queue List` tab, BPLO and GSO): every number as a table with search (queue number or business name) and filters (date range, status, regular/priority, application type). It opens on **today**; tick "Include unclaimed numbers from earlier days" to add the carried ones. **Export (CSV)** downloads exactly the rows shown (opens in Excel); **Print** prints the table.
+- **Numbers restart at 1 every day**, separately for each office (BPLO: per transaction A, B, C. GSO: one running folder number).
 - **Unclaimed numbers are kept.** A number marked "Hindi sumipot / No-show" (or one a counter left open overnight) stays on the unclaimed list day after day, with its old number and the date it was issued, until staff press **Claimed**, call it, or **Put back** it in the line. People still waiting in the line at closing time are not carried over.
 - The GSO transactions and windows are set in `src/lib/config.ts` (`OFFICES.gso`).

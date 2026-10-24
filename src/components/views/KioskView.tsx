@@ -23,8 +23,11 @@ export function KioskView({ office }: { office: OfficeId }) {
   const t = useT();
   const lang = useLang();
   const router = useRouter();
-  const [step, setStep] = useState<Step>("service");
-  const [svc, setSvc] = useState<string>("");
+  // An office with a single line (GSO) has nothing to choose, so the kiosk starts at the priority question.
+  const single = off.services.length === 1;
+  const first: Step = single ? "priority" : "service";
+  const [step, setStep] = useState<Step>(first);
+  const [svc, setSvc] = useState<string>(single ? off.services[0].code : "");
   const [priority, setPriority] = useState(false);
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
@@ -44,8 +47,8 @@ export function KioskView({ office }: { office: OfficeId }) {
   function reset() {
     setIssued(null);
     setQr("");
-    setStep("service");
-    setSvc("");
+    setStep(first);
+    setSvc(single ? off.services[0].code : "");
     setPriority(false);
     setPhone("");
     setError("");
@@ -138,7 +141,7 @@ export function KioskView({ office }: { office: OfficeId }) {
           ))}
         </div>
 
-        {step !== "service" && (
+        {step !== first && (
           <button className="back" onClick={() => setStep(step === "phone" ? "priority" : "service")}>
             ← {t("Bumalik", "Back")}
           </button>

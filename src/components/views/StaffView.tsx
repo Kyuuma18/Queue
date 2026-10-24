@@ -1,6 +1,8 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { TopBar } from "@/components/Brand";
+import { CreateTicketPanel } from "@/components/staff/CreateTicketPanel";
+import { QueueListPanel } from "@/components/staff/QueueListPanel";
 import { OfficeId, getOffice, service } from "@/lib/config";
 import { dayLabel, isCarried } from "@/lib/dates";
 import { manilaDay, useQueueState } from "@/lib/usePolling";
@@ -107,6 +109,9 @@ export function StaffView({ office }: { office: OfficeId }) {
   const t = useT();
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [counter, setCounter] = useState<number | null>(null);
+  // Staff area: the counter desk, (GSO) the create-ticket form, and the queue list table.
+  const [view, setView] = useState<"counter" | "create" | "list">("counter");
+  const expired = useCallback(() => setAuthed(false), []);
 
   useEffect(() => {
     fetch("/api/staff/login")
@@ -141,10 +146,41 @@ export function StaffView({ office }: { office: OfficeId }) {
         </main>
       ) : !authed ? (
         <Login onDone={() => setAuthed(true)} />
-      ) : !counter ? (
-        <PickCounter office={office} onPick={pick} />
       ) : (
-        <CounterDesk office={office} counter={counter} onChange={() => pick(null)} onLogout={logout} onExpired={() => setAuthed(false)} />
+        <>
+          <nav className="wrap wrap-wide staff-nav no-print" aria-label={t("Mga seksyon ng staff", "Staff sections")}>
+            <div className="tabs">
+              <button aria-pressed={view === "counter"} onClick={() => setView("counter")}>
+                {t("Counter", "Counter")}
+              </button>
+              {off.form && (
+                <button aria-pressed={view === "create"} onClick={() => setView("create")}>
+                  {t("Gumawa ng Ticket", "Create Ticket")}
+                </button>
+              )}
+              <button aria-pressed={view === "list"} onClick={() => setView("list")}>
+                {t("Listahan ng Pila", "Queue List")}
+              </button>
+              <a className="tab-link" href={off.paths.display} target="_blank" rel="noreferrer">
+                📺 {t("Queue Monitoring", "Queue Monitoring")}
+              </a>
+              <button onClick={logout}>{t("Mag-logout", "Logout")}</button>
+            </div>
+          </nav>
+          {view === "create" && off.form ? (
+            <main className="wrap wrap-wide">
+              <CreateTicketPanel office={office} onExpired={expired} />
+            </main>
+          ) : view === "list" ? (
+            <main className="wrap wrap-wide">
+              <QueueListPanel office={office} onExpired={expired} />
+            </main>
+          ) : !counter ? (
+            <PickCounter office={office} onPick={pick} />
+          ) : (
+            <CounterDesk office={office} counter={counter} onChange={() => pick(null)} onLogout={logout} onExpired={expired} />
+          )}
+        </>
       )}
     </>
   );

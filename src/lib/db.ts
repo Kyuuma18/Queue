@@ -26,6 +26,9 @@ ALTER TABLE tickets ADD COLUMN IF NOT EXISTS recalls   INTEGER NOT NULL DEFAULT 
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS notified  BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS token     TEXT;
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS office    TEXT NOT NULL DEFAULT 'bplo';
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS app_type      TEXT;
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS biz_type      TEXT;
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS business_name TEXT;
 CREATE INDEX IF NOT EXISTS tickets_day_status ON tickets (day, status);
 CREATE INDEX IF NOT EXISTS tickets_office_status ON tickets (office, status, day);
 `;
