@@ -326,6 +326,8 @@ table.data td.empty { text-align: center; color: var(--muted); font-weight: 800;
 .st-cancelled { background: #eceff3; color: var(--muted); }
 .st-serving { background: #fff3c4; color: var(--gold-ink); }
 
+.row-actions { display: flex; gap: 6px; flex-wrap: wrap; min-width: 190px; }
+
 /* Print only the part marked .print-area (a ticket slip or the queue list). */
 @media print {
   body * { visibility: hidden; }

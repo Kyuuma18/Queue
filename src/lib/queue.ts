@@ -271,8 +271,8 @@ export async function callSpecific(officeId: unknown, counter: number, id: numbe
   const db = await getDb();
   const [t] = await db.query<Ticket>(
     `UPDATE tickets SET status = 'serving', counter = $1, called_at = NOW(), day = ${TODAY},
-            recalls = recalls + CASE WHEN status = 'skipped' THEN 1 ELSE 0 END
-      WHERE id = $2 AND office = $3 AND ((day = ${TODAY} AND status = 'waiting') OR status = 'skipped') RETURNING ${COLS}`,
+            recalls = recalls + CASE WHEN status = 'waiting' THEN 0 ELSE 1 END
+      WHERE id = $2 AND office = $3 AND ((day = ${TODAY} AND status = 'waiting') OR status IN ('skipped','done','cancelled')) RETURNING ${COLS}`,
     [counter, id, off.id],
   );
   if (!t) throw new Error("That number is no longer available.");
@@ -318,6 +318,29 @@ export async function transfer(officeId: unknown, counter: number, toService: st
   );
   if (t?.phone) sendSms(t.phone, `Cainta ${off.short}: Numero ${t.number}, hintayin po ang tawag para sa ${serviceName(toService)}.`).catch(() => {});
   return t ?? null;
+}
+
+/** Staff cancel a number pressed by mistake (waiting, being served, or unclaimed). It stays in the list as Cancelled. */
+export async function cancelByStaff(officeId: unknown, id: number) {
+  const off = getOffice(officeId);
+  const db = await getDb();
+  const r = await db.query(
+    `UPDATE tickets SET status = 'cancelled', done_at = NOW() WHERE id = $1 AND office = $2 AND status IN ('waiting','serving','skipped') RETURNING id`,
+    [id, off.id],
+  );
+  if (!r.length) throw new Error("That number can no longer be cancelled.");
+}
+
+/** Undo a wrong click: put any finished, cancelled, unclaimed or serving number back in today's line. */
+export async function restoreTicket(officeId: unknown, id: number) {
+  const off = getOffice(officeId);
+  const db = await getDb();
+  const r = await db.query(
+    `UPDATE tickets SET status = 'waiting', counter = NULL, called_at = NULL, done_at = NULL, notified = FALSE, day = ${TODAY}
+      WHERE id = $1 AND office = $2 AND status IN ('done','cancelled','skipped','serving') RETURNING id`,
+    [id, off.id],
+  );
+  if (!r.length) throw new Error("That number is already waiting.");
 }
 
 /** Put an unclaimed number back at the front of today's line (an older number keeps its place at the front). */

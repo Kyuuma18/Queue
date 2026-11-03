@@ -311,6 +311,17 @@ function CounterDesk({
             <button className="btn btn-gold" disabled={busy || !mine} onClick={() => setShowTransfer((v) => !v)}>
               ⇄ {t("Ilipat", "Transfer")}
             </button>
+            <button
+              className="btn btn-ghost span-2"
+              disabled={busy || !mine}
+              onClick={() =>
+                mine &&
+                window.confirm(t(`Kanselahin ang ${mine.number}?`, `Cancel ${mine.number}?`)) &&
+                act("cancel", { id: mine.id })
+              }
+            >
+              🚫 {t("Kanselahin ang numero", "Cancel this number")}
+            </button>
           </div>
 
           {showTransfer && mine && (

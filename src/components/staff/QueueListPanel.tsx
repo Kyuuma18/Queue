@@ -28,6 +28,8 @@ export function QueueListPanel({ office, onExpired }: { office: OfficeId; onExpi
   const [carried, setCarried] = useState(false);
   const [rows, setRows] = useState<ListRow[] | null>(null);
   const [error, setError] = useState("");
+  const [counter, setCounter] = useState(off.counters[0].id); // where "Call again" sends a number
+  const [busyId, setBusyId] = useState<number | null>(null);
 
   const query = useMemo(() => {
     const p = new URLSearchParams({ office });
@@ -69,6 +71,28 @@ export function QueueListPanel({ office, onExpired }: { office: OfficeId; onExpi
     for (const r of rows ?? []) c[r.status] = (c[r.status] ?? 0) + 1;
     return c;
   }, [rows]);
+
+  // Fix a wrong click: call a finished number again, put it back in line, or cancel it.
+  async function act(action: "call" | "restore" | "cancel", r: ListRow, ask: string) {
+    if (!window.confirm(ask)) return;
+    setBusyId(r.id);
+    try {
+      const res = await fetch("/api/staff/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ office, action, counter, id: r.id }),
+      });
+      if (res.status === 401) return onExpired();
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error);
+      setError("");
+      await load();
+    } catch (e: any) {
+      setError(e.message ?? "Error");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   function reset() {
     setFrom(today);
@@ -155,6 +179,16 @@ export function QueueListPanel({ office, onExpired }: { office: OfficeId; onExpi
             }
           />
         </label>
+        <label className="fl">
+          {t("Tawagin sa", "Call again at")}
+          <select className="field" value={counter} onChange={(e) => setCounter(Number(e.target.value))}>
+            {off.counters.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="check-row">
           <input type="checkbox" checked={carried} onChange={(e) => setCarried(e.target.checked)} />
           {t("Isama ang hindi pa nakukuha mula sa mga nakaraang araw", "Include unclaimed numbers from earlier days")}
@@ -193,19 +227,20 @@ export function QueueListPanel({ office, onExpired }: { office: OfficeId; onExpi
                 <th>{t("Kinuha", "Issued")}</th>
                 <th>{t("Tinawag", "Called")}</th>
                 <th>{t("Tapos", "Done")}</th>
+                <th className="no-print">{t("Ayusin", "Fix")}</th>
               </tr>
             </thead>
             <tbody>
               {rows === null && (
                 <tr>
-                  <td colSpan={12} className="empty">
+                  <td colSpan={13} className="empty">
                     {t("Naglo-load…", "Loading…")}
                   </td>
                 </tr>
               )}
               {rows?.length === 0 && (
                 <tr>
-                  <td colSpan={12} className="empty">
+                  <td colSpan={13} className="empty">
                     {t("Walang datos", "No current data")}
                   </td>
                 </tr>
@@ -227,6 +262,41 @@ export function QueueListPanel({ office, onExpired }: { office: OfficeId; onExpi
                   <td>{time(r.created_at)}</td>
                   <td>{time(r.called_at)}</td>
                   <td>{time(r.done_at)}</td>
+                  <td className="no-print">
+                    <div className="row-actions">
+                      {r.status !== "serving" && (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          disabled={busyId === r.id}
+                          onClick={() =>
+                            act("call", r, t(`Tawagin ang ${r.number} sa ${counterLabel(office, counter)}?`, `Call ${r.number} at ${counterLabel(office, counter)}?`))
+                          }
+                        >
+                          🔊 {t("Tawagin", "Call again")}
+                        </button>
+                      )}
+                      {r.status !== "waiting" && (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          disabled={busyId === r.id}
+                          onClick={() =>
+                            act("restore", r, t(`Ibalik ang ${r.number} sa pila?`, `Put ${r.number} back in the line?`))
+                          }
+                        >
+                          ↩ {t("Ibalik sa pila", "Put back")}
+                        </button>
+                      )}
+                      {(r.status === "waiting" || r.status === "serving" || r.status === "skipped") && (
+                        <button
+                          className="btn btn-red btn-sm"
+                          disabled={busyId === r.id}
+                          onClick={() => act("cancel", r, t(`Kanselahin ang ${r.number}?`, `Cancel ${r.number}?`))}
+                        >
+                          🚫 {t("Kanselahin", "Cancel")}
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

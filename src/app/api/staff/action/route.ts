@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isStaff } from "@/lib/auth";
-import { callNext, callSpecific, complete, markClaimed, markUnclaimed, recall, requeue, toPublic, transfer } from "@/lib/queue";
+import { callNext, cancelByStaff, restoreTicket, callSpecific, complete, markClaimed, markUnclaimed, recall, requeue, toPublic, transfer } from "@/lib/queue";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +35,12 @@ export async function POST(req: Request) {
         break;
       case "claimed":
         await markClaimed(office, Number(b.id));
+        break;
+      case "cancel":
+        await cancelByStaff(office, Number(b.id));
+        break;
+      case "restore":
+        await restoreTicket(office, Number(b.id));
         break;
       default:
         throw new Error("Unknown action");
