@@ -127,8 +127,8 @@ export const OFFICES: Record<OfficeId, Office> = {
     counters: [
       { id: 1, label: "Counter 1", services: ["A"] },
       { id: 2, label: "Counter 2", services: ["A"] },
-      { id: 3, label: "Counter 3", services: ["B"] },
-      { id: 4, label: "Counter 4", services: ["B"] },
+      { id: 3, label: "Treasury 1", services: ["B"] },
+      { id: 4, label: "Treasury 2", services: ["B"] },
       { id: 5, label: "Counter 5", services: ["C", "A"] },
     ],
     videos: [],
