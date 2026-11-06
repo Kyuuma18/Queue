@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { TopBar } from "@/components/Brand";
 import { CreateTicketPanel } from "@/components/staff/CreateTicketPanel";
+import { InstallHint } from "@/components/InstallHint";
 import { QueueListPanel } from "@/components/staff/QueueListPanel";
 import { OfficeId, getOffice, service } from "@/lib/config";
 import { dayLabel, isCarried } from "@/lib/dates";
@@ -85,6 +86,7 @@ function Login({ onDone }: { onDone: () => void }) {
           </button>
         ))}
       </div>
+      <InstallHint />
     </main>
   );
 }
@@ -157,7 +159,7 @@ export function StaffView({ office }: { office: OfficeId }) {
       )
     )
       return;
-    const r = await fetch("/api/staff/kiosk", { method: "POST" });
+    const r = await fetch("/api/staff/kiosk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ office }) });
     if (r.ok) window.location.href = off.paths.kiosk;
     else if (r.status === 401) expired();
   }

@@ -58,15 +58,6 @@ export function HomeView({ office }: { office: OfficeId }) {
           )}
         </section>
 
-        <div className="grid-2">
-          <Link href={off.paths.display} className="btn btn-ghost btn-block">
-            📺 {t("TV Screen", "TV screen")}
-          </Link>
-          <Link href={off.paths.staff} className="btn btn-ghost btn-block">
-            🔒 Staff
-          </Link>
-        </div>
-
         <Link href={other.paths.home} className="btn btn-ghost btn-block">
           {office === "bplo"
             ? t("Pupunta sa GSO? Tingnan ang pila →", "Going to the GSO? See its queue →")

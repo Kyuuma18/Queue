@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/Brand";
+import { InstallHint } from "@/components/InstallHint";
 import { Receipt, ReceiptData } from "@/components/Receipt";
 import { OfficeId, getOffice, service } from "@/lib/config";
 import { printReceipt } from "@/lib/printReceipt";
@@ -42,6 +43,34 @@ export function KioskView({ office }: { office: OfficeId }) {
       .then((j) => setAllowed(!!j.ok))
       .catch(() => setAllowed(false));
   }, []);
+
+  // Kiosk behaviour: keep the screen awake, go full screen on the first touch, no long-press menus.
+  useEffect(() => {
+    if (!allowed) return;
+    document.documentElement.classList.add("kiosk-mode");
+    const noMenu = (e: Event) => e.preventDefault();
+    document.addEventListener("contextmenu", noMenu);
+    let lock: any = null;
+    const keepAwake = async () => {
+      try {
+        lock = await (navigator as any).wakeLock?.request("screen");
+      } catch {}
+    };
+    keepAwake();
+    const onVisible = () => document.visibilityState === "visible" && keepAwake();
+    document.addEventListener("visibilitychange", onVisible);
+    const full = () => {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
+    };
+    window.addEventListener("pointerdown", full, { once: true });
+    return () => {
+      document.documentElement.classList.remove("kiosk-mode");
+      document.removeEventListener("contextmenu", noMenu);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pointerdown", full);
+      lock?.release?.().catch(() => {});
+    };
+  }, [allowed]);
 
   const reset = useCallback(() => {
     setIssued(null);
@@ -127,6 +156,7 @@ export function KioskView({ office }: { office: OfficeId }) {
           <Link href={off.paths.staff} className="btn btn-ghost btn-sm" style={{ alignSelf: "center" }}>
             🔒 Staff: {t("i-set up ang kiosk", "set up this kiosk")}
           </Link>
+          <InstallHint />
         </main>
       </>
     );

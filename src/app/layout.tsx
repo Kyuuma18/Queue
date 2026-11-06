@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Cainta Queue · BPLO & Treasury",
-  description: "Kumuha ng numero at bantayan ang pila mula sa inyong phone. Take a queue number and follow the line from your phone.",
+  description: "Cainta queueing system for the Business Permit and General Services offices.",
   applicationName: "Cainta Queue",
   appleWebApp: { capable: true, title: "Cainta Queue", statusBarStyle: "black-translucent" },
 };
@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
   themeColor: "#0b2a6f",
 };
 

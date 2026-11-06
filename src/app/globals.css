@@ -364,3 +364,15 @@ table.data td.empty { text-align: center; color: var(--muted); font-weight: 800;
 .receipt-line { text-align: left; }
 .receipt-line b { overflow-wrap: anywhere; }
 .receipt-foot { font-size: 10px; margin-top: 1px; }
+
+
+/* App feel: respect phone notches, and when installed (standalone/fullscreen) behave like an app, not a web page. */
+body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); padding-bottom: env(safe-area-inset-bottom); }
+.topbar { padding-top: max(10px, env(safe-area-inset-top)); }
+button, a, .choice { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  html, body { overscroll-behavior: none; }
+  body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  input, textarea, select { -webkit-user-select: text; user-select: text; }
+}
+.kiosk-mode, .kiosk-mode * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
