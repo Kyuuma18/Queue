@@ -37,3 +37,22 @@ export async function isStaff() {
   const good = sign(exp);
   return good.length === sig.length && timingSafeEqual(Buffer.from(good), Buffer.from(sig));
 }
+
+/* ───────── Office kiosk device ─────────
+ * Only a device that staff set up with the PIN may issue tickets; clients' own phones cannot. */
+export const KIOSK_COOKIE = "cq_kiosk";
+export const KIOSK_DAYS = 365;
+
+export function makeKioskToken() {
+  const exp = String(Date.now() + KIOSK_DAYS * 24 * 3600 * 1000);
+  return `${exp}.${sign("kiosk." + exp)}`;
+}
+
+export async function isKiosk() {
+  const v = (await cookies()).get(KIOSK_COOKIE)?.value;
+  if (!v) return false;
+  const [exp, sig] = v.split(".");
+  if (!exp || !sig || Number(exp) < Date.now()) return false;
+  const good = sign("kiosk." + exp);
+  return good.length === sig.length && timingSafeEqual(Buffer.from(good), Buffer.from(sig));
+}

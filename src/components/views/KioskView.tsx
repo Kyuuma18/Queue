@@ -1,78 +1,96 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import QRCode from "qrcode";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { TopBar } from "@/components/Brand";
-import { MINUTES_PER_CLIENT, OfficeId, getOffice, service } from "@/lib/config";
-import { manilaDay, saveTicket } from "@/lib/usePolling";
-import { useLang, useT } from "@/lib/i18n";
+import { Receipt, ReceiptData } from "@/components/Receipt";
+import { OfficeId, getOffice, service } from "@/lib/config";
+import { printReceipt } from "@/lib/printReceipt";
+import { setLang, useLang, useT } from "@/lib/i18n";
 
-interface Issued {
-  id: number;
-  token: string;
-  number: string;
+interface Issued extends ReceiptData {
   service: string;
-  priority: boolean;
   ahead: number;
 }
 
-type Step = "service" | "priority" | "phone";
+type Step = "start" | "service" | "priority";
 
+const IDLE_MS = 60_000; // back to the welcome screen when nobody touches it
+const DONE_MS = 12_000; // how long the ticket number stays up before the next person
+
+/**
+ * The office kiosk, like a self-order kiosk: Touch to start → what do you need → priority? → the ticket prints.
+ * Only a device that staff set up with the PIN can issue tickets. Add ?print=0 to skip the automatic printing.
+ */
 export function KioskView({ office }: { office: OfficeId }) {
   const off = getOffice(office);
   const t = useT();
   const lang = useLang();
-  const router = useRouter();
-  // An office with a single line (GSO) has nothing to choose, so the kiosk starts at the priority question.
   const single = off.services.length === 1;
-  const first: Step = single ? "priority" : "service";
-  const [step, setStep] = useState<Step>(first);
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [step, setStep] = useState<Step>("start");
   const [svc, setSvc] = useState<string>(single ? off.services[0].code : "");
-  const [priority, setPriority] = useState(false);
-  const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [issued, setIssued] = useState<Issued | null>(null);
-  const [qr, setQr] = useState("");
-  // ?shared=1 → the office tablet: show the ticket + QR, then reset for the next person.
-  const [shared, setShared] = useState(false);
-  useEffect(() => setShared(new URLSearchParams(location.search).has("shared")), []);
+  const [autoPrint, setAutoPrint] = useState(true);
+  const idle = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!issued || !shared) return;
-    const id = setTimeout(reset, 45000);
-    return () => clearTimeout(id);
-  }, [issued, shared]);
+    setAutoPrint(new URLSearchParams(location.search).get("print") !== "0");
+    fetch("/api/kiosk", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => setAllowed(!!j.ok))
+      .catch(() => setAllowed(false));
+  }, []);
 
-  function reset() {
+  const reset = useCallback(() => {
     setIssued(null);
-    setQr("");
-    setStep(first);
+    setStep("start");
     setSvc(single ? off.services[0].code : "");
-    setPriority(false);
-    setPhone("");
     setError("");
-  }
+  }, [single, off]);
 
-  async function submit(withPhone: boolean) {
+  // Any touch restarts the idle timer; when it runs out the next person starts from the welcome screen.
+  useEffect(() => {
+    if (!allowed || issued || step === "start") return;
+    const arm = () => {
+      if (idle.current) clearTimeout(idle.current);
+      idle.current = setTimeout(reset, IDLE_MS);
+    };
+    arm();
+    window.addEventListener("pointerdown", arm);
+    return () => {
+      window.removeEventListener("pointerdown", arm);
+      if (idle.current) clearTimeout(idle.current);
+    };
+  }, [allowed, issued, step, reset]);
+
+  // After the ticket is shown, clear the screen for the next person.
+  useEffect(() => {
+    if (!issued) return;
+    const id = setTimeout(reset, DONE_MS);
+    return () => clearTimeout(id);
+  }, [issued, reset]);
+
+  // Print once the slip is on the page.
+  useEffect(() => {
+    if (!issued || !autoPrint) return;
+    const id = setTimeout(() => printReceipt(issued.number), 300);
+    return () => clearTimeout(id);
+  }, [issued, autoPrint]);
+
+  async function submit(priority: boolean) {
     setBusy(true);
     setError("");
     try {
       const r = await fetch("/api/tickets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ office, service: svc, priority, phone: withPhone ? phone : "" }),
+        body: JSON.stringify({ office, service: svc, priority }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? t("May problema. Subukan ulit.", "Something went wrong. Please try again."));
-      const url = `/ticket?id=${j.id}&k=${j.token}`;
-      if (shared) {
-        setIssued(j);
-        setQr(await QRCode.toDataURL(location.origin + url, { margin: 1, width: 360 }));
-      } else {
-        saveTicket({ id: j.id, token: j.token, number: j.number, day: manilaDay(), office });
-        router.replace(url + "&new=1");
-      }
+      setIssued(j);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -80,46 +98,65 @@ export function KioskView({ office }: { office: OfficeId }) {
     }
   }
 
-  const stepIndex = { service: 0, priority: 1, phone: 2 }[step];
+  if (allowed === null) {
+    return (
+      <>
+        <TopBar office={office} sizes={false} />
+        <main className="wrap">
+          <p className="lead">{t("Naglo-load…", "Loading…")}</p>
+        </main>
+      </>
+    );
+  }
+
+  // A client's own phone, or any device staff have not set up, cannot take a number.
+  if (!allowed) {
+    return (
+      <>
+        <TopBar office={office} sizes={false} />
+        <main className="wrap stack" style={{ textAlign: "center" }}>
+          <div className="card stack">
+            <div style={{ fontSize: 56 }} aria-hidden>
+              🖥️
+            </div>
+            <h1>{t("Kumuha ng numero sa kiosk", "Please take your number at the kiosk")}</h1>
+            <p className="lead">
+              {t("Pumunta po sa kiosk sa opisina at pindutin ang screen.", "Please go to the kiosk in the office and touch the screen.")}
+            </p>
+          </div>
+          <Link href={off.paths.staff} className="btn btn-ghost btn-sm" style={{ alignSelf: "center" }}>
+            🔒 Staff: {t("i-set up ang kiosk", "set up this kiosk")}
+          </Link>
+        </main>
+      </>
+    );
+  }
 
   if (issued) {
     const s = service(issued.service);
     return (
       <>
-        <TopBar office={office} sizes={false} />
-        <main className="wrap stack">
+        <TopBar office={office} sizes={false} lang={false} />
+        <main className="wrap stack kiosk-done">
           <div className="ticket">
             <div className="ticket-head">{t("Ang inyong numero", "Your number")}</div>
             <div className="ticket-num">{issued.number}</div>
             <div className="ticket-body stack">
               <div>
-                <span className="pill">
-                  {s?.icon} {lang === "en" ? s?.name : s?.tl}
-                </span>{" "}
+                {!single && (
+                  <span className="pill">
+                    {s?.icon} {lang === "en" ? s?.name : s?.tl}
+                  </span>
+                )}{" "}
                 {issued.priority && <span className="pill pill-gold">★ Priority</span>}
               </div>
-              <div className="bigstat">
-                <div>
-                  <b>{issued.ahead}</b>
-                  <small>{t("nauuna", "ahead")}</small>
-                </div>
-                <div>
-                  <b>~{Math.max(1, issued.ahead * MINUTES_PER_CLIENT)}</b>
-                  <small>{t("minuto", "minutes")}</small>
-                </div>
-              </div>
-            </div>
-            <div className="ticket-cut" />
-            <div className="ticket-body" style={{ paddingTop: 16 }}>
-              {qr && (
-                <img
-                  src={qr}
-                  alt={t("QR code para sa inyong numero", "QR code for your number")}
-                  style={{ width: 220, height: 220 }}
-                />
-              )}
-              <p style={{ margin: "6px 0 0", fontWeight: 700 }}>
-                {t("I-scan para bantayan sa phone", "Scan to follow your number on your phone")}
+              <p style={{ margin: 0, fontWeight: 800, fontSize: "1.2em" }}>
+                {autoPrint
+                  ? t("Kunin ang inyong ticket sa printer.", "Please take your ticket from the printer.")
+                  : t("Hintayin ang inyong numero sa screen.", "Please wait for your number on the screen.")}
+              </p>
+              <p className="muted" style={{ margin: 0 }}>
+                {issued.ahead} {t("ang nauuna sa inyo", "ahead of you")}
               </p>
             </div>
           </div>
@@ -127,25 +164,59 @@ export function KioskView({ office }: { office: OfficeId }) {
             {t("Tapos na", "Done")}
           </button>
         </main>
+        {/* off-screen copy of the slip, for the printer */}
+        <div style={{ position: "absolute", left: -9999, top: 0, width: 260 }} aria-hidden>
+          <Receipt office={office} data={issued} />
+        </div>
       </>
     );
   }
 
+  if (step === "start") {
+    return (
+      <>
+        <TopBar office={office} sizes={false} lang={false} />
+        <main className="wrap stack kiosk-start">
+          <h1 style={{ textAlign: "center", margin: 0 }}>{off.name}</h1>
+          <button
+            className="btn btn-gold kiosk-touch"
+            onClick={() => setStep(single ? "priority" : "service")}
+          >
+            <span style={{ fontSize: 64 }} aria-hidden>
+              👆
+            </span>
+            <span>{t("HAWAKAN PARA MAGSIMULA", "TOUCH TO START")}</span>
+            <small>{t("Kumuha ng numero ng pila", "Get your queue number")}</small>
+          </button>
+          <div className="grid-2" role="group" aria-label="Language">
+            <button className={"btn btn-xl " + (lang === "tl" ? "btn-primary" : "btn-ghost")} onClick={() => setLang("tl")}>
+              Tagalog
+            </button>
+            <button className={"btn btn-xl " + (lang === "en" ? "btn-primary" : "btn-ghost")} onClick={() => setLang("en")}>
+              English
+            </button>
+          </div>
+        </main>
+      </>
+    );
+  }
+
+  const stepIndex = step === "service" ? 0 : 1;
+  const stepCount = single ? 1 : 2;
+
   return (
     <>
-      <TopBar office={office} />
+      <TopBar office={office} sizes={false} />
       <main className="wrap">
         <div className="steps" aria-hidden>
-          {[0, 1, 2].map((i) => (
-            <span key={i} className={i <= stepIndex ? "on" : ""} />
+          {Array.from({ length: stepCount }).map((_, i) => (
+            <span key={i} className={i <= (single ? 0 : stepIndex) ? "on" : ""} />
           ))}
         </div>
 
-        {step !== first && (
-          <button className="back" onClick={() => setStep(step === "phone" ? "priority" : "service")}>
-            ← {t("Bumalik", "Back")}
-          </button>
-        )}
+        <button className="back" onClick={() => (step === "priority" && !single ? setStep("service") : reset())}>
+          ← {step === "priority" && !single ? t("Bumalik", "Back") : t("Simula ulit", "Start over")}
+        </button>
 
         {step === "service" && (
           <section className="stack">
@@ -185,15 +256,13 @@ export function KioskView({ office }: { office: OfficeId }) {
               )}
             </h1>
             <p className="lead">{t("Ihanda ang ID para ipakita sa counter.", "Please show your ID at the counter.")}</p>
+            {error && (
+              <div className="alert alert-red" role="alert">
+                {error}
+              </div>
+            )}
             <div className="grid-2">
-              <button
-                className="choice"
-                style={{ borderColor: "var(--gold)" }}
-                onClick={() => {
-                  setPriority(true);
-                  setStep("phone");
-                }}
-              >
+              <button className="choice" style={{ borderColor: "var(--gold)" }} disabled={busy} onClick={() => submit(true)}>
                 <span className="choice-icon" aria-hidden style={{ background: "var(--amber-bg)" }}>
                   ★
                 </span>
@@ -204,13 +273,7 @@ export function KioskView({ office }: { office: OfficeId }) {
                   </span>
                 </span>
               </button>
-              <button
-                className="choice"
-                onClick={() => {
-                  setPriority(false);
-                  setStep("phone");
-                }}
-              >
+              <button className="choice" disabled={busy} onClick={() => submit(false)}>
                 <span className="choice-icon" aria-hidden>
                   👤
                 </span>
@@ -222,44 +285,7 @@ export function KioskView({ office }: { office: OfficeId }) {
                 </span>
               </button>
             </div>
-          </section>
-        )}
-
-        {step === "phone" && (
-          <section className="stack">
-            <h1>
-              {t("Gusto ba ninyong ma-text kapag malapit na?", "Want a text message when your turn is near?")}
-            </h1>
-            <p className="lead">{t("Hindi kailangan. Pwedeng laktawan.", "Optional — you may skip this.")}</p>
-            <label className="stack" style={{ gap: 6 }}>
-              <span style={{ fontWeight: 800 }}>{t("Mobile number", "Mobile number")}</span>
-              <input
-                className="field"
-                inputMode="numeric"
-                autoComplete="tel"
-                placeholder="09XX XXX XXXX"
-                maxLength={13}
-                value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/[^\d ]/g, ""))}
-              />
-            </label>
-            {error && (
-              <div className="alert alert-red" role="alert">
-                {error}
-              </div>
-            )}
-            <button className="btn btn-gold btn-xl btn-block" disabled={busy || phone.replace(/\D/g, "").length < 10} onClick={() => submit(true)}>
-              {busy ? t("Sandali lang…", "Please wait…") : t("I-text ako", "Text me")}
-            </button>
-            <button className="btn btn-primary btn-xl btn-block" disabled={busy} onClick={() => submit(false)}>
-              {busy ? t("Sandali lang…", "Please wait…") : t("Kunin ang numero", "Get my number")}
-            </button>
-            <p style={{ color: "var(--muted)", fontSize: "0.85em", margin: 0 }}>
-              {t(
-                "Gagamitin lang ang numero para sa abiso ng pila ngayong araw.",
-                "Used only for today's queue alerts.",
-              )}
-            </p>
+            {busy && <p className="lead">{t("Sandali lang…", "Please wait…")}</p>}
           </section>
         )}
       </main>

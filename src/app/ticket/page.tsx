@@ -63,8 +63,8 @@ export default function TicketPage() {
         <TopBar />
         <main className="wrap stack">
           <h1>{tr("Hindi makita ang numero", "We couldn't find this ticket")}</h1>
-          <Link href={off.paths.kiosk} className="btn btn-gold btn-xl btn-block">
-            {tr("Kumuha ng bagong numero", "Get a new number")}
+          <Link href={off.paths.home} className="btn btn-ghost btn-block">
+            ⌂ Home
           </Link>
         </main>
       </>
@@ -157,11 +157,6 @@ export default function TicketPage() {
               </p>
             )}
 
-            {(t.status === "done" || t.status === "cancelled") && (
-              <Link href={off.paths.kiosk} className="btn btn-gold btn-xl btn-block">
-                {tr("Kumuha ng bagong numero", "Get a new number")}
-              </Link>
-            )}
             <Link href={off.paths.home} className="btn btn-ghost btn-block">
               ⌂ Home
             </Link>

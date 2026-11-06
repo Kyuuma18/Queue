@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import QRCode from "qrcode";
 import { LangToggle, Seal } from "@/components/Brand";
 import { useLang, useT } from "@/lib/i18n";
 import { MediaPanel } from "@/components/MediaPanel";
@@ -36,7 +35,6 @@ export function DisplayView({ office }: { office: OfficeId }) {
   const [sound, setSound] = useState(false);
   const [callout, setCallout] = useState<{ number: string; counter: string } | null>(null);
   const [fresh, setFresh] = useState<Record<number, string>>({});
-  const [qr, setQr] = useState("");
   const seen = useRef<Record<number, string> | null>(null);
   const queue = useRef<{ number: string; counter: string }[]>([]);
   const playing = useRef(false);
@@ -44,7 +42,6 @@ export function DisplayView({ office }: { office: OfficeId }) {
   soundRef.current = sound;
 
   useEffect(() => {
-    QRCode.toDataURL(location.origin + off.paths.kiosk, { margin: 1, width: 300 }).then(setQr);
     try {
       setSound(localStorage.getItem("cq_sound") === "1");
     } catch {}
@@ -155,13 +152,15 @@ export function DisplayView({ office }: { office: OfficeId }) {
             </div>
           </section>
           <section className="panel" style={{ display: "flex", gap: 14, alignItems: "center" }}>
-            {qr && <img src={qr} alt="" style={{ width: 120, height: 120, flex: "none" }} />}
+            <span style={{ fontSize: 48, flex: "none" }} aria-hidden>
+              🎫
+            </span>
             <div>
               <b style={{ fontSize: "1.2em", color: "var(--navy)" }}>
-                {t_("I-scan para kumuha ng numero", "Scan to get a number")}
+                {t_("Kumuha ng numero sa kiosk", "Get your number at the kiosk")}
               </b>
               <span className="tl">
-                {t_("Gamitin ang phone at bantayan ang pila", "Use your phone and follow the line")}
+                {t_("Hawakan ang screen ng kiosk at kunin ang ticket", "Touch the kiosk screen and take your ticket")}
               </span>
             </div>
           </section>

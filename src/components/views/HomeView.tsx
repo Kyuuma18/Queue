@@ -1,18 +1,15 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { TopBar } from "@/components/Brand";
 import { OFFICES, OfficeId, counterLabel, getOffice } from "@/lib/config";
 import { useT } from "@/lib/i18n";
-import { SavedTicket, loadSaved, useQueueState } from "@/lib/usePolling";
+import { useQueueState } from "@/lib/usePolling";
 
 export function HomeView({ office }: { office: OfficeId }) {
   const t = useT();
   const off = getOffice(office);
   const other = OFFICES[office === "bplo" ? "gso" : "bplo"];
   const { state } = useQueueState(6000, office);
-  const [saved, setSaved] = useState<SavedTicket[]>([]);
-  useEffect(() => setSaved(loadSaved().filter((s) => (s.office ?? "bplo") === office)), [office]);
 
   return (
     <>
@@ -28,25 +25,15 @@ export function HomeView({ office }: { office: OfficeId }) {
           </h1>
         </section>
 
-        {saved.length > 0 && (
-          <section className="card stack" aria-labelledby="mine">
-            <h2 id="mine">{t("Ang inyong numero", "Your number today")}</h2>
-            {saved.map((s) => (
-              <Link key={s.id} href={`/ticket?id=${s.id}&k=${s.token}`} className="btn btn-primary btn-xl btn-block">
-                🎫 {s.number} — {t("Tingnan", "View")}
-              </Link>
-            ))}
-          </section>
-        )}
-
-        <Link href={off.paths.kiosk} className="btn btn-gold btn-xl btn-block" style={{ minHeight: 120 }}>
-          <span style={{ fontSize: 40 }} aria-hidden>
+        <section className="card stack" style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 48 }} aria-hidden>
             🎫
-          </span>
-          <span style={{ textAlign: "left", lineHeight: 1.15 }}>
-            {t("Kumuha ng Numero", "Get a queue number")}
-          </span>
-        </Link>
+          </div>
+          <h2 style={{ margin: 0 }}>{t("Kumuha ng numero sa kiosk", "Get your queue number at the kiosk")}</h2>
+          <p className="lead" style={{ margin: 0 }}>
+            {t("Hawakan ang screen ng kiosk sa opisina at kunin ang ticket.", "Touch the kiosk screen in the office and take your ticket.")}
+          </p>
+        </section>
 
         <section className="card" aria-labelledby="now">
           <h2 id="now">{t("Tinatawag ngayon", "Now serving")}</h2>
@@ -82,8 +69,8 @@ export function HomeView({ office }: { office: OfficeId }) {
 
         <Link href={other.paths.home} className="btn btn-ghost btn-block">
           {office === "bplo"
-            ? t("Pupunta sa GSO? Pumila rito →", "Going to the GSO? Queue here →")
-            : t("← Pumunta sa pila ng BPLO at Treasury", "← Go to the BPLO & Treasury queue")}
+            ? t("Pupunta sa GSO? Tingnan ang pila →", "Going to the GSO? See its queue →")
+            : t("← Tingnan ang pila ng BPLO at Treasury", "← See the BPLO & Treasury queue")}
         </Link>
 
         <p className="footer-note">

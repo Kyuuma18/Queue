@@ -146,6 +146,22 @@ export function StaffView({ office }: { office: OfficeId }) {
     } catch {}
   }
 
+  // Turn this device into the office kiosk (clients' own phones cannot take numbers).
+  async function setupKiosk() {
+    if (
+      !window.confirm(
+        t(
+          "Gawing kiosk ang device na ito? Magbubukas ito ng kiosk screen para sa mga kliyente.",
+          "Make this device the office kiosk? It will open the client kiosk screen.",
+        ),
+      )
+    )
+      return;
+    const r = await fetch("/api/staff/kiosk", { method: "POST" });
+    if (r.ok) window.location.href = off.paths.kiosk;
+    else if (r.status === 401) expired();
+  }
+
   async function logout() {
     await fetch("/api/staff/logout", { method: "POST" });
     setAuthed(false);
@@ -178,6 +194,7 @@ export function StaffView({ office }: { office: OfficeId }) {
               <a className="tab-link" href={off.paths.display} target="_blank" rel="noreferrer">
                 📺 {t("Queue Monitoring", "Queue Monitoring")}
               </a>
+              <button onClick={setupKiosk}>🖥 {t("Gawing Kiosk", "Set up Kiosk")}</button>
               <button onClick={logout}>{t("Mag-logout", "Logout")}</button>
             </div>
           </nav>

@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
+import { isKiosk, isStaff } from "@/lib/auth";
 import { createTicket, normalizePhone, toPublic } from "@/lib/queue";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
+  // Tickets are issued only by the office kiosk (or staff), never from a client's own phone.
+  if (!(await isKiosk()) && !(await isStaff())) {
+    return NextResponse.json({ error: "Please take your number at the kiosk." }, { status: 403 });
+  }
   try {
     const body = await req.json().catch(() => ({}));
     const phone = normalizePhone(body.phone);

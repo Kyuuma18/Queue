@@ -326,6 +326,12 @@ table.data td.empty { text-align: center; color: var(--muted); font-weight: 800;
 .st-cancelled { background: #eceff3; color: var(--muted); }
 .st-serving { background: #fff3c4; color: var(--gold-ink); }
 
+/* Kiosk (self-service touch screen) */
+.kiosk-start { min-height: 70vh; justify-content: center; }
+.kiosk-touch { display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; width: 100%; min-height: 46vh; border-radius: 28px; font-size: clamp(1.8rem, 6vw, 3rem); font-weight: 900; text-align: center; line-height: 1.1; }
+.kiosk-touch small { font-size: 0.45em; font-weight: 700; }
+.kiosk-done .ticket-num { font-size: clamp(4rem, 20vw, 9rem); }
+
 .row-actions { display: flex; gap: 6px; flex-wrap: wrap; min-width: 190px; }
 
 /* Print only the part marked .print-area (a ticket slip or the queue list). */

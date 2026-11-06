@@ -7,13 +7,16 @@ Queueing system for the Cainta Business Permit & Licensing Office, built for **p
 | Link | Who uses it | What it does |
 |---|---|---|
 | `/` | Clients | Home: big "Kumuha ng Numero" button, who is being called now, and the client's own number if they already have one. |
-| `/kiosk` | Clients (own phone) | 3 big steps: choose transaction → Senior/PWD/buntis? → optional mobile number for SMS. Opens the client's live ticket. |
-| `/kiosk?shared=1` | Office tablet at the entrance | Same steps, but shows the number + a QR code the client scans to follow on their phone, then resets for the next person. |
-| `/ticket` | Clients | Live ticket: number, how many are ahead, estimated minutes. Turns green and vibrates when called ("Kayo na po! Pumunta sa Counter 3"). Client can cancel. |
-| `/display` | Waiting-area TV or tablet | Now serving per counter, next in line, no-show list, rotating requirements slides or videos, clock, and a QR code to get a number. Tap **"Tap to turn on sound"** once so it chimes and reads each number aloud in English and Tagalog. |
+| `/kiosk` | Office touch screen only | Self-service kiosk: **Touch to start** → choose transaction → Senior/PWD/buntis? → the ticket prints and the screen resets for the next person. It only works on a device staff set up (see below); a client's own phone just sees "Please take your number at the kiosk". There is no QR code and clients cannot take numbers online. |
+| `/display` | Waiting-area TV or tablet | Now serving per counter, next in line, no-show list, rotating requirements slides or videos, clock, and a QR code to get a number. Tap **"Tap to turn on sound"** once so it chimes and a woman's voice reads each number aloud in English and Tagalog. |
 | `/staff` | Counter staff | PIN keypad login → pick counter → **Call Next**, **Recall**, **Complete**, **No-show**, **Transfer** (e.g. Renewal → Payment keeping the same number). Lists of waiting and no-show numbers with search; any number can be called directly. |
 
 Priority clients (Senior, PWD, buntis, with infant) get a **P** number (e.g. `PA012`) and are always called first.
+
+## Setting up the kiosk
+
+1. On the kiosk touch screen, open `/staff` (or `/gso/staff`), log in, and press **Set up Kiosk**. The device is then remembered for a year and opens the kiosk screen. (Changing `STAFF_PIN` makes you set it up again.)
+2. For automatic printing without a print window, start Chrome on the kiosk with `--kiosk --kiosk-printing` and make the receipt printer the default printer. Add `?print=0` to the kiosk address to turn printing off.
 
 ## Settings
 
